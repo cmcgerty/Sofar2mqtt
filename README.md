@@ -76,3 +76,19 @@ Here's how it looks when completed.
 
 ![Finished](pics/SofarCtrl.jpg)
 
+# Flashing
+
+Open SofarCtrl.ino in the Arduino IDE. 
+
+You'll need the libraries for the ESP8266. Follow [this guide](https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/) if you haven't completed that step before.
+
+Add a few more libraries using the Manage Librarries menu:
+1. PubSubClient
+2. SoftwareSerial
+3. Adafruit GFX
+4. Adafruit SSD1306 Wemos Mini OLED
+
+...and upload.
+
+
+
