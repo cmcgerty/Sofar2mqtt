@@ -44,11 +44,11 @@ battery_save is a hybrid auto mode that will charge from excess solar but not di
 # How To Build
 
 Parts List:
-ESP8266 Microcontroller
-MAX485 or MAX3485 TTL to RS485 board
-Wemos 48x64 OLED Screen (optional)
-A small project board
-A few wires and a little solder
+1. ESP8266 Microcontroller
+2. MAX485 or MAX3485 TTL to RS485 board
+3. Wemos 64x48 OLED Screen (optional)
+4. A small project board
+5. A few wires and a little solder
 
 ![Parts](pics/parts.jpg)
 
