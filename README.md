@@ -9,32 +9,33 @@ It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module su
 
 Subscribe your MQTT server to these queues:
 
-sofar/running_state
-sofar/grid_voltage
-sofar/grid_current
-sofar/grid_freq
-sofar/battery_power
-sofar/battery_voltage
-sofar/battery_current
-sofar/batterySOC
-sofar/battery_temp
-sofar/battery_cycles
-sofar/grid_power
-sofar/consumption
-sofar/solarPV
-sofar/today_generation
-sofar/today_exported
-sofar/today_purchase
-sofar/today_consumption
-sofar/inverter_temp
-sofar/inverterHS_temp
-sofar/solarPVAmps
+sofar/running_state  
+sofar/grid_voltage  
+sofar/grid_current  
+sofar/grid_freq  
+sofar/battery_power  
+sofar/battery_voltage  
+sofar/battery_current  
+sofar/batterySOC  
+sofar/battery_temp  
+sofar/battery_cycles  
+sofar/grid_power  
+sofar/consumption  
+sofar/solarPV  
+sofar/today_generation  
+sofar/today_exported  
+sofar/today_purchase  
+sofar/today_consumption  
+sofar/inverter_temp  
+sofar/inverterHS_temp  
+sofar/solarPVAmps  
 
 Send MQTT messages to these queues:
-sofar/standby	send value true or false
-sofar/auto		send value true, false or battery_save
-sofar/charge	send value in the range 0-3000 (watts)
-sofar/discharge	send value in the range 0-3000 (watts)
+
+sofar/standby	send value true or false  
+sofar/auto		send value true, false or battery_save  
+sofar/charge	send value in the range 0-3000 (watts)  
+sofar/discharge	send value in the range 0-3000 (watts)  
 
 battery_save is a hybrid auto mode that will charge from excess solar but not dischange.
 
