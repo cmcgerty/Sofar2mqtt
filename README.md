@@ -32,10 +32,10 @@ sofar/solarPVAmps
 
 Send MQTT messages to these queues:
 
-sofar/standby	send value true or false  
-sofar/auto		send value true, false or battery_save  
-sofar/charge	send value in the range 0-3000 (watts)  
-sofar/discharge	send value in the range 0-3000 (watts)  
+sofar/standby   - send value true or false  
+sofar/auto   - send value true, false or battery_save  
+sofar/charge   - send value in the range 0-3000 (watts)  
+sofar/discharge   - send value in the range 0-3000 (watts)  
 
 battery_save is a hybrid auto mode that will charge from excess solar but not dischange.
 
