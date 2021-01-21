@@ -1,5 +1,5 @@
 # SofarCtrl
-
+## An MQTT modbus interface for the Sofar ME3000SP solar battery inverter.
 ![SofarCtrl](pics/SofarCtrlOn.jpg)
 
 SofarCtrl is a modbus interface for the Sofar ME3000SP solar battery inverter.
