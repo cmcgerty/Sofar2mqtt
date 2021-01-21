@@ -1,4 +1,4 @@
-Max size 1 → # SofarCtrl
+Max size 1 → #SofarCtrl
 
 ![SofarCtrl](pics/SofarCtrlOn.jpg)
 
@@ -39,7 +39,7 @@ battery_save is a hybrid auto mode that will charge from excess solar but not di
 
 (c)Colin McGerty 2021 colin@mcgerty.co.uk
 
-Max size 1 → # How To Build
+Max size 1 → #How To Build
 
 Parts List:
 ESP8266 Microcontroller
