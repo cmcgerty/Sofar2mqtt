@@ -25,14 +25,13 @@ sofar/today_consumption
 sofar/inverter_temp
 sofar/inverterHS_temp
 sofar/solarPVAmps
-
 Send MQTT messages to these queues:
 sofar/standby	send value true or false
 sofar/auto		send value true, false or battery_save
 sofar/charge	send value in the range 0-3000 (watts)
 sofar/discharge	send value in the range 0-3000 (watts)
 
-battery_save is a hybrid auto mode that will charge from excess solar but not dischange.
+Battery save mode is a hybrid auto mode that will charge from excess solar but not dischange.
 
 (c)Colin McGerty 2021 colin@mcgerty.co.uk
 *****/
@@ -77,7 +76,7 @@ SoftwareSerial RS485Serial(RXPin, TXPin);
 #define faultState 6
 #define permanentFaultState 7
 unsigned int INVERTER_RUNNINGSTATE;
-// Autocharge mode is a hybrid mode where the battery will charge from excess solar but not discharge.
+// Battery Save mode is a hybrid mode where the battery will charge from excess solar but not discharge.
 bool BATTERYSAVE = false;
 // Sofar ME3000SP Modbus commands.
 // The two CRC bytes at the end are padded with zeros to make the frames the correct size. They get replaced using calcCRC at send time.
@@ -560,8 +559,6 @@ modbusResponce listen()
 				//This might be the start of a frame. Let's presume it is for now.
 				inFrame[inByteNum] = inChar;
 				inByteNum++;
-				//Serial.print(inChar, HEX);
-				//Serial.print(" ");
 			}
 			else if (inByteNum == 1)
 			{
@@ -569,8 +566,6 @@ modbusResponce listen()
 				inFunctionCode = inChar;
 				inFrame[inByteNum] = inChar;
 				inByteNum++;
-				//Serial.print(inChar, HEX);
-				//Serial.print(" ");
 			}
 			else if (inByteNum == 2)
 			{
@@ -578,8 +573,6 @@ modbusResponce listen()
 				inDataBytes = inChar;
 				inFrame[inByteNum] = inChar;
 				inByteNum ++;
-				//Serial.print(inChar, HEX);
-				//Serial.print(" ");
 			}
 			else if (inByteNum > 2 && inByteNum < inDataBytes + 3) //There are three bytes before the data and two after (the CRC).
 			{
@@ -588,31 +581,24 @@ modbusResponce listen()
 				ret.data[inByteNum-3] = inChar;
 				ret.dataSize++;
 				inByteNum++;
-				//Serial.print(inChar, HEX);
-				//Serial.print(" ");
 			}
 			else if (inByteNum == inDataBytes + 3)
 			{
 				//This is the first CRC byte (maybe).
 				inFrame[inByteNum] = inChar;
 				inByteNum++;
-				//Serial.print(inChar, HEX);
-				//Serial.print(" ");
 			}
 			else if (inByteNum == inDataBytes + 4)
 			{
 				//This is the second CRC byte (maybe).
 				inFrame[inByteNum] = inChar;
 				inByteNum++;
-				//Serial.print(inChar, HEX);
-				//Serial.print(" ");
 				break;
 			}
 		}
 		inFrameSize = inByteNum;
 	}
 	RS485Serial.flush();
-	//Serial.println();
 	// Now check to see if the last two bytes are a valid CRC.
 	if (checkCRC(inFrame, inFrameSize))
 	{
@@ -815,7 +801,7 @@ void loop()
 	updateRunstate();
 	//Transmit all data to MQTT
 	sendData();
-	//Set battrey save state
+	//Set battery save state
 	batterySave();
 
 	delay(100);
