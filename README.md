@@ -8,6 +8,7 @@ back the invertor status, power usage, battery state etc via outgoing MQTT messa
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.
 
 Subscribe your MQTT server to these queues:
+
 sofar/running_state
 sofar/grid_voltage
 sofar/grid_current
