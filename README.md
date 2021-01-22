@@ -78,9 +78,9 @@ Here's how it looks when completed.
 
 # Flashing
 
-Download and edit SofarCtrl.ino with your wifi and mqtt server details.
- 
-Open SofarCtrl.ino in the Arduino IDE. 
+Open SofarCtrl.ino in the Arduino IDE.
+
+Edit SofarCtrl.ino with your wifi network name and password and your mqtt server details. 
 
 You'll need the libraries for the ESP8266. Follow [this guide](https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/) if you haven't completed that step before.
 
@@ -90,10 +90,12 @@ Add a few more libraries using the Manage Libraries menu:
 3. Adafruit GFX
 4. Adafruit SSD1306 Wemos Mini OLED
 
+(Even if you are not using the OLED screen, you should install the Adafruit libraries or it will not compile.)
+
 ...and upload.
 
 When you run it on the desktop, not connected to you invertor, you can test that wifi and mqtt are connected at start up.
-The screen should show "Connected". It should also show "RS485 Error" to indicate that the connection to the interter is not there.
+The OLED screen should show "Connected". It should also show "RS485 Error" to indicate that the connection to the interter is not there.
 
 # Connect to Inverter
 
