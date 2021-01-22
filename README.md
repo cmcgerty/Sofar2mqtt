@@ -78,6 +78,8 @@ Here's how it looks when completed.
 
 # Flashing
 
+Download and edit SofarCtrl.ino with your wifi and mqtt server details.
+ 
 Open SofarCtrl.ino in the Arduino IDE. 
 
 You'll need the libraries for the ESP8266. Follow [this guide](https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/) if you haven't completed that step before.
