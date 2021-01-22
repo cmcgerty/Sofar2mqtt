@@ -100,7 +100,7 @@ The OLED screen should show "Connected". It should also show "RS485 Error" to in
 # Connect to Inverter
 
 Connect the SofarCtrl unit to a 5v micro USB power supply.
-Now connect wires A and B to the two wire RS484 input of your ME3000SP, which is marked as 485s on the image below.
+Now connect wires A and B to the two wire RS485 input of your ME3000SP, which is marked as 485s on the image below.
 
 ![ME3000SP Data Connections](pics/485s.jpg)
 
