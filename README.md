@@ -3,7 +3,7 @@
 ![SofarCtrl](pics/SofarCtrlOn.jpg)
 
 SofarCtrl is a modbus interface for the Sofar ME3000SP solar battery inverter.
-It allows control of the ME3000 in passive mode via incoming MQTT messages and reports
+It allows remote control of the ME3000 in passive mode via incoming MQTT messages and reports
 back the invertor status, power usage, battery state etc via outgoing MQTT messages.
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.
 
