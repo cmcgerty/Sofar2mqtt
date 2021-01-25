@@ -1,11 +1,15 @@
 # SofarCtrl
-## An MQTT modbus interface for the Sofar ME3000SP solar battery inverter.
+## An MQTT modbus interface for Sofar solar battery inverters.
+
+Fully working with the ME3000SP.
+Tested on HYD-x000-ES models and confirmed working in read-only mode.
+
 ![SofarCtrl](pics/SofarCtrlOn.jpg)
 
-SofarCtrl is a modbus interface for the Sofar ME3000SP solar battery inverter.
-It allows remote control of the ME3000 in passive mode via incoming MQTT messages and reports
-back the invertor status, power usage, battery state etc via outgoing MQTT messages.
+SofarCtrl is a modbus interface for Sofar solar battery inverters.
+It allows remote control of the inverter when in passive mode by sending MQTT messages and reports the invertor status, power usage, battery state etc via outgoing MQTT messages. For read only mode, it will send status messages without the interter needing to be in passive mode.
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.
+Tested and working with either MAX485 or MAX3485 with or without the DR and RE pins. If your TTL module does not have these pins then just irgore the wire from D5. 
 
 Subscribe your MQTT server to these queues:
 
@@ -32,8 +36,8 @@ sofar/solarPVAmps
 
 Send MQTT messages to these queues:
 
-sofar/standby   - send value true or false  
-sofar/auto   - send value true, false or battery_save  
+sofar/standby   - send value true
+sofar/auto   - send value true or battery_save  
 sofar/charge   - send value in the range 0-3000 (watts)  
 sofar/discharge   - send value in the range 0-3000 (watts)  
 
@@ -60,7 +64,7 @@ Wire the componets according to this circuit diagram.
 
 ![Wiring Diagram](pics/diagram.jpg)
 
-I tend to keep the wires on top of the board, poke them through and solder underneath. Your approach may be better and your soldering may way be better than mine!
+I tend to keep the wires on top of the board, poke them through and solder underneath. Your approach may be better and your soldering will almost certainly be better than mine!
 
 ![Wiring](pics/wiring.jpg)
 
@@ -94,13 +98,13 @@ Add a few more libraries using the Manage Libraries menu:
 
 ...and upload.
 
-When you run it on the desktop, not connected to you invertor, you can test that wifi and mqtt are connected at start up.
-The OLED screen should show "Connected". It should also show "RS485 Error" to indicate that the connection to the interter is not there.
+Run it on the desktop, not connected to you invertor, you can test that wifi and mqtt are connected and see some messages in the serial monitor.
+The OLED screen should show "Connected" to indicate a connection to WiFi and MQTT. It will also show "RS485 Error" to indicate that the connection to the interter is not there.
 
 # Connect to Inverter
 
 Connect the SofarCtrl unit to a 5v micro USB power supply.
-Now connect wires A and B to the two wire RS485 input of your ME3000SP, which is marked as 485s on the image below.
+Now connect wires A and B to the two wire RS485 input of your inverter, which is marked as 485s on the image of the ME3000SP below.
 
 ![ME3000SP Data Connections](pics/485s.jpg)
 
