@@ -1,14 +1,15 @@
 # SofarCtrl
 ## An MQTT modbus interface for Sofar solar battery inverters.
 
-Fully working with the ME3000SP.
+Fully working with the ME3000SP.  
 Tested on HYD-x000-ES models and confirmed working in read-only mode.
 
 ![SofarCtrl](pics/SofarCtrlOn.jpg)
 
 SofarCtrl is a modbus interface for Sofar solar battery inverters.
-It allows remote control of the inverter when in passive mode by sending MQTT messages and reports the invertor status, power usage, battery state etc via outgoing MQTT messages. For read only mode, it will send status messages without the interter needing to be in passive mode.
-It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.
+It allows remote control of the inverter when in passive mode by sending MQTT messages and reports the invertor status, power usage, battery state etc via outgoing MQTT messages.  
+For read only mode, it will send status messages without the inverter needing to be in passive mode.  
+It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.  
 Tested and working with either MAX485 or MAX3485 with or without the DR and RE pins. If your TTL module does not have these pins then just irgore the wire from D5. 
 
 Subscribe your MQTT server to these queues:
