@@ -37,7 +37,7 @@ Battery save mode is a hybrid auto mode that will charge from excess solar but n
 *****/
 
 const char* deviceName = "SofarCtrl";
-const char* version = "v0.18";
+const char* version = "v0.19";
 
 #include <Arduino.h>
 
@@ -121,7 +121,7 @@ struct modbusResponce
 
 // These timers are used in the main loop.
 unsigned long time_1 = 0;
-#define HEARTBEAT_INTERVAL 20000
+#define HEARTBEAT_INTERVAL 9000
 unsigned long time_2 = 0;
 #define RUNSTATE_INTERVAL 5000
 unsigned long time_3 = 0;
@@ -454,13 +454,16 @@ void batterySave()
 			{
 				p = ((gp.data[0] << 8) | gp.data[1]);
 			}
-			if (p < 65535/2 && p > 5) //charge when export is 50W or more
+			// Switch to auto when any power flows to the grid.
+			// We leave a little wriggle room because once you start charging the battery, 
+			// gridPower should be floating just above or below zero.
+			if (p<65535/2 || p>65530)
 			{
 				//exporting to the grid
 				modbusResponce responce = sendModbus(setAuto, sizeof(setAuto));
 				if (responce.errorLevel == 0)
 				{
-					Serial.println("charge");
+					Serial.println("auto");
 				}
 			}
 			else
@@ -469,7 +472,7 @@ void batterySave()
 				modbusResponce responce = sendModbus(setStandby, sizeof(setStandby));
 				if (responce.errorLevel == 0)
 				{
-					Serial.println("waiting");
+					Serial.println("standby");
 				}
 			}
 		}
