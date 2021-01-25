@@ -10,7 +10,7 @@ SofarCtrl is a modbus interface for Sofar solar battery inverters.
 It allows remote control of the inverter when in passive mode by sending MQTT messages and reports the invertor status, power usage, battery state etc via outgoing MQTT messages.  
 For read only mode, it will send status messages without the inverter needing to be in passive mode.  
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.  
-Tested and working with either MAX485 or MAX3485 with or without the DR and RE pins. If your TTL module does not have these pins then just irgore the wire from D5. 
+Tested and working with either MAX485 or MAX3485 with or without the DR and RE pins. If your TTL module does not have these pins then just ignore the wire from D5. 
 
 Subscribe your MQTT server to these queues:
 
@@ -35,9 +35,9 @@ sofar/inverter_temp
 sofar/inverterHS_temp  
 sofar/solarPVAmps  
 
-Send MQTT messages to these queues:
+With the inverter in Passive Mode, send MQTT messages to these queues:
 
-sofar/standby   - send value true
+sofar/standby   - send value true  
 sofar/auto   - send value true or battery_save  
 sofar/charge   - send value in the range 0-3000 (watts)  
 sofar/discharge   - send value in the range 0-3000 (watts)  
@@ -99,7 +99,7 @@ Add a few more libraries using the Manage Libraries menu:
 
 ...and upload.
 
-Run it on the desktop, not connected to you invertor, you can test that wifi and mqtt are connected and see some messages in the serial monitor.
+Run it on the desktop, not connected to you invertor, to test that wifi and mqtt are connected and see some messages in the serial monitor.
 The OLED screen should show "Connected" to indicate a connection to WiFi and MQTT. It will also show "RS485 Error" to indicate that the connection to the interter is not there.
 
 # Connect to Inverter
