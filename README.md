@@ -44,7 +44,7 @@ sofar/discharge   - send value in the range 0-3000 (watts)
 
 battery_save is a hybrid auto mode that will charge from excess solar but not dischange.
 
-(c)Colin McGerty 2021 colin@mcgerty.co.uk
+(c)Colin McGerty 2021 colin@mcgerty.co.uk  
 calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 
 # How To Build
