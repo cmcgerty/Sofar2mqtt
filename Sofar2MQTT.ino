@@ -1,43 +1,50 @@
 /*****
-SofarCtrl is a modbus interface for the Sofar ME3000SP solar battery inverter.
-It allows remote control of the ME3000 in passive mode via incoming MQTT messages and reports
-back the invertor status, power usage, battery state etc via outgoing MQTT messages.
-It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.
+Sofar2MQTT is a modbus interface for Sofar solar battery inverters.
+It allows remote control of the inverter when in passive mode by sending MQTT messages and reports the invertor status, power usage, battery state etc via outgoing MQTT messages.  
+For read only mode, it will send status messages without the inverter needing to be in passive mode.  
+It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.  
+Tested and working with either MAX485 or MAX3485 with or without the DR and RE pins. If your TTL module does not have these pins then just ignore the wire from D5.
+Fully working with the ME3000SP.  
+Tested on HYD-x000-ES models and confirmed working in read-only mode.
 
-Subscribe your MQTT server to these queues:
-sofar/running_state
-sofar/grid_voltage
-sofar/grid_current
-sofar/grid_freq
-sofar/battery_power
-sofar/battery_voltage
-sofar/battery_current
-sofar/batterySOC
-sofar/battery_temp
-sofar/battery_cycles
-sofar/grid_power
-sofar/consumption
-sofar/solarPV
-sofar/today_generation
-sofar/today_exported
-sofar/today_purchase
-sofar/today_consumption
-sofar/inverter_temp
-sofar/inverterHS_temp
-sofar/solarPVAmps
-Send MQTT messages to these queues:
-sofar/standby	send value true or false
-sofar/auto		send value true, false or battery_save
-sofar/charge	send value in the range 0-3000 (watts)
-sofar/discharge	send value in the range 0-3000 (watts)
+Subscribe your MQTT client to these queues:
 
-Battery save mode is a hybrid auto mode that will charge from excess solar but not dischange.
+sofar/running_state  
+sofar/grid_voltage  
+sofar/grid_current  
+sofar/grid_freq  
+sofar/battery_power  
+sofar/battery_voltage  
+sofar/battery_current  
+sofar/batterySOC  
+sofar/battery_temp  
+sofar/battery_cycles  
+sofar/grid_power  
+sofar/consumption  
+sofar/solarPV  
+sofar/today_generation  
+sofar/today_exported  
+sofar/today_purchase  
+sofar/today_consumption  
+sofar/inverter_temp  
+sofar/inverterHS_temp  
+sofar/solarPVAmps  
+
+With the inverter in Passive Mode, send MQTT messages to these queues:
+
+sofar/standby   - send value true  
+sofar/auto   - send value true or battery_save  
+sofar/charge   - send value in the range 0-3000 (watts)  
+sofar/discharge   - send value in the range 0-3000 (watts)  
+
+battery_save is a hybrid auto mode that will charge from excess solar but not dischange.
 
 (c)Colin McGerty 2021 colin@mcgerty.co.uk
+calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 *****/
 
-const char* deviceName = "SofarCtrl";
-const char* version = "v0.19";
+const char* deviceName = "Sofar2MQTT";
+const char* version = "v0.20";
 
 #include <Arduino.h>
 
@@ -436,7 +443,6 @@ void mqttCallback(String topic, byte* message, unsigned int length) {
 			}
 		}
 	}
-	Serial.println();
 }
 
 void batterySave()
@@ -453,6 +459,10 @@ void batterySave()
 			if (gp.errorLevel == 0)
 			{
 				p = ((gp.data[0] << 8) | gp.data[1]);
+			}
+			else
+			{
+				Serial.println("modbus error");
 			}
 			// Switch to auto when any power flows to the grid.
 			// We leave a little wriggle room because once you start charging the battery, 
@@ -639,11 +649,11 @@ void heartbeat()
 		if (responce.errorLevel == 0)
 		{
 			String flashDot;
-			if (oledLine1 == "SofarCtrl") 
-				flashDot = "SofarCtrl.";
+			if (oledLine2 == "Online") 
+				flashDot = "Online.";
 			
-			if (oledLine1 == "SofarCtrl.")
-				flashDot = "SofarCtrl";
+			if (oledLine2 == "Online.")
+				flashDot = "Online";
 				
 			if (oledLine3 == "RS485") 
 				oledLine3 = "";
@@ -651,12 +661,12 @@ void heartbeat()
 			if (oledLine4 == "ERROR")
 				oledLine4 = "";
 
-			updateOLED(flashDot, "NULL", "NULL", "NULL");
+			updateOLED("NULL", flashDot, "NULL", "NULL");
 		}
 		else
 		{
 			Serial.println(responce.errorMessage);
-			updateOLED(deviceName, "NULL", "RS485", "ERROR");
+			updateOLED("NULL", "NULL", "RS485", "ERROR");
 		}
 		
 		//Flash the LED
@@ -769,7 +779,7 @@ void setup()
 	display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize OLED with the I2C addr 0x3C (for the 64x48)
 	display.clearDisplay();
 	display.display();
-	updateOLED("SofarCtrl", "connecting", "", version);
+	updateOLED(deviceName, "connecting", "", version);
 
 	setup_wifi();
 	

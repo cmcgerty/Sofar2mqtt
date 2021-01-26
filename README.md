@@ -1,18 +1,18 @@
-# SofarCtrl
+# Sofar2MQTT
 ## An MQTT modbus interface for Sofar solar battery inverters.
 
 Fully working with the ME3000SP.  
 Tested on HYD-x000-ES models and confirmed working in read-only mode.
 
-![SofarCtrl](pics/SofarCtrlOn.jpg)
+![Sofar2MQTT](pics/Sofar2MQTT.jpg)
 
-SofarCtrl is a modbus interface for Sofar solar battery inverters.
+Sofar2MQTT is a modbus interface for Sofar solar battery inverters.
 It allows remote control of the inverter when in passive mode by sending MQTT messages and reports the invertor status, power usage, battery state etc via outgoing MQTT messages.  
 For read only mode, it will send status messages without the inverter needing to be in passive mode.  
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.  
 Tested and working with either MAX485 or MAX3485 with or without the DR and RE pins. If your TTL module does not have these pins then just ignore the wire from D5. 
 
-Subscribe your MQTT server to these queues:
+Subscribe your MQTT client to these queues:
 
 sofar/running_state  
 sofar/grid_voltage  
@@ -45,6 +45,7 @@ sofar/discharge   - send value in the range 0-3000 (watts)
 battery_save is a hybrid auto mode that will charge from excess solar but not dischange.
 
 (c)Colin McGerty 2021 colin@mcgerty.co.uk
+calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 
 # How To Build
 
@@ -79,13 +80,13 @@ Use long pinned mounts on your ESP8266 if you are stacking the optional OLED on 
 
 Here's how it looks when completed.
 
-![Finished](pics/SofarCtrl.jpg)
+![Finished](pics/Sofar2MQTT_completed.jpg)
 
 # Flashing
 
-Open SofarCtrl.ino in the Arduino IDE.
+Open Sofar2MQTT.ino in the Arduino IDE.
 
-Edit SofarCtrl.ino with your wifi network name and password and your mqtt server details. 
+Edit Sofar2MQTT.ino with your wifi network name and password and your mqtt server details. 
 
 You'll need the libraries for the ESP8266. Follow [this guide](https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/) if you haven't completed that step before.
 
@@ -100,11 +101,11 @@ Add a few more libraries using the Manage Libraries menu:
 ...and upload.
 
 Run it on the desktop, not connected to you invertor, to test that wifi and mqtt are connected and see some messages in the serial monitor.
-The OLED screen should show "Connected" to indicate a connection to WiFi and MQTT. It will also show "RS485 Error" to indicate that the connection to the interter is not there.
+The OLED screen should show "Online" to indicate a connection to WiFi and MQTT. It will alternate between "RS485 Error" and "CRC-FAULT" to indicate that the inverter is not connected.
 
 # Connect to Inverter
 
-Connect the SofarCtrl unit to a 5v micro USB power supply.
+Connect the Sofar2MQTT unit to a 5v micro USB power supply.
 Now connect wires A and B to the two wire RS485 input of your inverter, which is marked as 485s on the image of the ME3000SP below.
 
 ![ME3000SP Data Connections](pics/485s.jpg)
