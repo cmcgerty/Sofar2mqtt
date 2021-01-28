@@ -92,9 +92,8 @@ You'll need the libraries for the ESP8266. Follow [this guide](https://randomner
 
 Add a few more libraries using the Manage Libraries menu:
 1. PubSubClient
-2. SoftwareSerial
-3. Adafruit GFX
-4. Adafruit SSD1306 Wemos Mini OLED
+2. Adafruit GFX
+3. Adafruit SSD1306 Wemos Mini OLED
 
 (Even if you are not using the OLED screen, you should install the Adafruit libraries or it will not compile.)
 
