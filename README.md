@@ -12,35 +12,39 @@ For read only mode, it will send status messages without the inverter needing to
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.  
 Tested and working with either MAX485 or MAX3485 with or without the DR and RE pins. If your TTL module does not have these pins then just ignore the wire from D5. 
 
-Subscribe your MQTT client to these queues:
+Subscribe your MQTT client to:
 
-sofar/running_state  
-sofar/grid_voltage  
-sofar/grid_current  
-sofar/grid_freq  
-sofar/battery_power  
-sofar/battery_voltage  
-sofar/battery_current  
-sofar/batterySOC  
-sofar/battery_temp  
-sofar/battery_cycles  
-sofar/grid_power  
-sofar/consumption  
-sofar/solarPV  
-sofar/today_generation  
-sofar/today_exported  
-sofar/today_purchase  
-sofar/today_consumption  
-sofar/inverter_temp  
-sofar/inverterHS_temp  
-sofar/solarPVAmps  
+sofar/state
 
-With the inverter in Passive Mode, send MQTT messages to these queues:
+Which provides:
 
-sofar/standby   - send value true  
-sofar/auto   - send value true or battery_save  
-sofar/charge   - send value in the range 0-3000 (watts)  
-sofar/discharge   - send value in the range 0-3000 (watts)  
+running_state  
+grid_voltage  
+grid_current  
+grid_freq  
+battery_power  
+battery_voltage  
+battery_current  
+batterySOC  
+battery_temp  
+battery_cycles  
+grid_power  
+consumption  
+solarPV  
+today_generation  
+today_exported  
+today_purchase  
+today_consumption  
+inverter_temp  
+inverterHS_temp  
+solarPVAmps  
+
+With the inverter in Passive Mode, send MQTT messages to:
+
+sofar/set/standby   - send value "true"  
+sofar/set/auto   - send value "true" or "battery_save"  
+sofar/set/charge   - send value in the range 0-3000 (watts)  
+sofar/set/discharge   - send value in the range 0-3000 (watts) 
 
 battery_save is a hybrid auto mode that will charge from excess solar but not dischange.
 
