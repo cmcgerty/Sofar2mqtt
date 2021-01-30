@@ -7,46 +7,50 @@ Tested and working with either MAX485 or MAX3485 with or without the DR and RE p
 Fully working with the ME3000SP.  
 Tested on HYD-x000-ES models and confirmed working in read-only mode.
 
-Subscribe your MQTT client to these queues:
+Subscribe your MQTT client to:
 
-sofar/running_state  
-sofar/grid_voltage  
-sofar/grid_current  
-sofar/grid_freq  
-sofar/battery_power  
-sofar/battery_voltage  
-sofar/battery_current  
-sofar/batterySOC  
-sofar/battery_temp  
-sofar/battery_cycles  
-sofar/grid_power  
-sofar/consumption  
-sofar/solarPV  
-sofar/today_generation  
-sofar/today_exported  
-sofar/today_purchase  
-sofar/today_consumption  
-sofar/inverter_temp  
-sofar/inverterHS_temp  
-sofar/solarPVAmps  
+sofar/state
 
-With the inverter in Passive Mode, send MQTT messages to these queues:
+Which provides:
 
-sofar/standby   - send value true  
-sofar/auto   - send value true or battery_save  
-sofar/charge   - send value in the range 0-3000 (watts)  
-sofar/discharge   - send value in the range 0-3000 (watts)  
+running_state  
+grid_voltage  
+grid_current  
+grid_freq  
+battery_power  
+battery_voltage  
+battery_current  
+batterySOC  
+battery_temp  
+battery_cycles  
+grid_power  
+consumption  
+solarPV  
+today_generation  
+today_exported  
+today_purchase  
+today_consumption  
+inverter_temp  
+inverterHS_temp  
+solarPVAmps  
+
+With the inverter in Passive Mode, send MQTT messages to:
+
+sofar/set/standby   - send value "true"  
+sofar/set/auto   - send value "true" or "battery_save"  
+sofar/set/charge   - send value in the range 0-3000 (watts)  
+sofar/set/discharge   - send value in the range 0-3000 (watts)  
 
 battery_save is a hybrid auto mode that will charge from excess solar but not dischange.
 
 (c)Colin McGerty 2021 colin@mcgerty.co.uk
 calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 *****/
+#include <Arduino.h>
 
 const char* deviceName = "Sofar2MQTT";
-const char* version = "v0.20";
+const char* version = "v0.21";
 
-#include <Arduino.h>
 
 // Wifi parameters. Fill in your wifi network name and password.
 #include <ESP8266WiFi.h>
@@ -73,7 +77,7 @@ PubSubClient mqtt(wifi);
 #define TXPin        D7  // Serial Transmit pin
 SoftwareSerial RS485Serial(RXPin, TXPin);
 
-// Sofar ME3000SP run states
+// Sofar run states
 #define waiting 0
 #define check 1
 #define charging 2
@@ -85,7 +89,7 @@ SoftwareSerial RS485Serial(RXPin, TXPin);
 unsigned int INVERTER_RUNNINGSTATE;
 // Battery Save mode is a hybrid mode where the battery will charge from excess solar but not discharge.
 bool BATTERYSAVE = false;
-// Sofar ME3000SP Modbus commands.
+// Sofar Modbus commands.
 // The two CRC bytes at the end are padded with zeros to make the frames the correct size. They get replaced using calcCRC at send time.
 uint8_t slaveId = 0x01;
 uint8_t readSingleRegister = 0x03;
@@ -224,146 +228,147 @@ void sendData()
 	if(millis() >= time_3 + SEND_INTERVAL)
 	{
 		time_3 +=SEND_INTERVAL;
-		
+		String state;
 		modbusResponce rs = sendModbus(getRunningState, sizeof(getRunningState));
 		if (rs.errorLevel == 0)
 		{
 			unsigned int a = ((rs.data[0] << 8) | rs.data[1]);
-			sendMqtt ("sofar/running_state" , String(a));
+			state = "{\"running_state\":"+String(a)+",";
 		}
-		
+
 		modbusResponce gv = sendModbus(getGridVoltage, sizeof(getGridVoltage));
 		if (gv.errorLevel == 0)
 		{
 			unsigned int b = ((gv.data[0] << 8) | gv.data[1]);
-			sendMqtt ("sofar/grid_voltage" , String(b));
+			state = state+"\"grid_voltage\":"+String(b)+",";
 		}
 
 		modbusResponce gc = sendModbus(getGridCurrent, sizeof(getGridCurrent));
 		if (gc.errorLevel == 0)
 		{
 			unsigned int c = ((gc.data[0] << 8) | gc.data[1]);
-			sendMqtt ("sofar/grid_current" , String(c));
+			state = state+"\"grid_current\":"+String(c)+",";
 		}
 
 		modbusResponce gf = sendModbus(getGridFrequency, sizeof(getGridFrequency));
 		if (gf.errorLevel == 0)
 		{
 			unsigned int d = ((gf.data[0] << 8) | gf.data[1]);
-			sendMqtt ("sofar/grid_freq" , String(d));
+			state = state+"\"grid_freq\":"+String(d)+",";
 		}
 		
 		modbusResponce bp = sendModbus(getBatteryPower, sizeof(getBatteryPower));
 		if (bp.errorLevel == 0)
 		{
 			unsigned int e = ((bp.data[0] << 8) | bp.data[1]);
-			sendMqtt ("sofar/battery_power" , String(e));
+			state = state+"\"battery_power\":"+String(e)+",";
 		}
 		
 		modbusResponce bv = sendModbus(getBatteryVoltage, sizeof(getBatteryVoltage));
 		if (bv.errorLevel == 0)
 		{
 			unsigned int f = ((bv.data[0] << 8) | bv.data[1]);
-			sendMqtt ("sofar/battery_voltage" , String(f));
+			state = state+"\"battery_voltage\":"+String(f)+",";
 		}
 		
 		modbusResponce bc = sendModbus(getBatteryCurrent, sizeof(getBatteryCurrent));
 		if (bc.errorLevel == 0)
 		{
 			unsigned int g = ((bc.data[0] << 8) | bc.data[1]);
-			sendMqtt ("sofar/battery_current" , String(g));
+			state = state+"\"battery_current\":"+String(g)+",";
 		}
 		
 		modbusResponce bs = sendModbus(getBatterySOC, sizeof(getBatterySOC));
 		if (bs.errorLevel == 0)
 		{
 			unsigned int h = ((bs.data[0] << 8) | bs.data[1]);
-			sendMqtt ("sofar/batterySOC" , String(h));
+			state = state+"\"batterySOC\":"+String(h)+",";
 		}
 
 		modbusResponce bt = sendModbus(getBatteryTemperature, sizeof(getBatteryTemperature));
 		if (bt.errorLevel == 0)
 		{
 			unsigned int i = ((bt.data[0] << 8) | bt.data[1]);
-			sendMqtt ("sofar/battery_temp" , String(i));
+			state = state+"\"battery_temp\":"+String(i)+",";
 		}
-		
+
 		modbusResponce cy = sendModbus(getBatteryCycles, sizeof(getBatteryCycles));
 		if (cy.errorLevel == 0)
 		{
 			unsigned int j = ((cy.data[0] << 8) | cy.data[1]);
-			sendMqtt ("sofar/battery_cycles" , String(j));
+			state = state+"\"battery_cycles\":"+String(j)+",";
 		}
 
 		modbusResponce gp = sendModbus(getGridPower, sizeof(getGridPower));
 		if (gp.errorLevel == 0)
 		{
 			unsigned int k = ((gp.data[0] << 8) | gp.data[1]);
-			sendMqtt ("sofar/grid_power" , String(k));
+			state = state+"\"grid_power\":"+String(k)+",";
 		}
 
 		modbusResponce lp = sendModbus(getLoadPower, sizeof(getLoadPower));
 		if (lp.errorLevel == 0)
 		{
 			unsigned int l = ((lp.data[0] << 8) | lp.data[1]);
-			sendMqtt ("sofar/consumption" , String(l));
+			state = state+"\"consumption\":"+String(l)+",";
 		}
 
 		modbusResponce sp = sendModbus(getSolarPV, sizeof(getSolarPV));
 		if (sp.errorLevel == 0)
 		{
 			unsigned int m = ((sp.data[0] << 8) | sp.data[1]);
-			sendMqtt ("sofar/solarPV" , String(m));
+			state = state+"\"solarPV\":"+String(m)+",";
 		}
 
 		modbusResponce st = sendModbus(getSolarPVToday, sizeof(getSolarPVToday));
 		if (st.errorLevel == 0)
 		{
 			unsigned int n = ((st.data[0] << 8) | st.data[1]);
-			sendMqtt ("sofar/today_generation" , String(n));
+			state = state+"\"today_generation\":"+String(n)+",";
 		}
 
 		modbusResponce et = sendModbus(getGridExportToday, sizeof(getGridExportToday));
 		if (et.errorLevel == 0)
 		{
 			unsigned int o = ((et.data[0] << 8) | et.data[1]);
-			sendMqtt ("sofar/today_exported" , String(o));
+			state = state+"\"today_exported\":"+String(o)+",";
 		}
 
 		modbusResponce it = sendModbus(getGridImportToday, sizeof(getGridImportToday));
 		if (it.errorLevel == 0)
 		{
 			unsigned int p = ((it.data[0] << 8) | it.data[1]);
-			sendMqtt ("sofar/today_purchase" , String(p));
+			state = state+"\"today_purchase\":"+String(p)+",";
 		}
 
 		modbusResponce pt = sendModbus(getLoadPowerToday, sizeof(getLoadPowerToday));
 		if (pt.errorLevel == 0)
 		{
 			unsigned int q = ((pt.data[0] << 8) | pt.data[1]);
-			sendMqtt ("sofar/today_consumption" , String(q));
+			state = state+"\"today_consumption\":"+String(q)+",";
 		}
 
 		modbusResponce vt = sendModbus(getInternalTemp, sizeof(getInternalTemp));
 		if (vt.errorLevel == 0)
 		{
 			unsigned int r = ((vt.data[0] << 8) | vt.data[1]);
-			sendMqtt ("sofar/inverter_temp" , String(r));
+			state = state+"\"inverter_temp\":"+String(r)+",";
 		}
 
 		modbusResponce ht = sendModbus(getHeatSinkTemp, sizeof(getHeatSinkTemp));
 		if (ht.errorLevel == 0)
 		{
 			unsigned int s = ((ht.data[0] << 8) | ht.data[1]);
-			sendMqtt ("sofar/inverterHS_temp" , String(s));
+			state = state+"\"inverterHS_temp\":"+String(s)+",";
 		}
 
 		modbusResponce sc = sendModbus(getSolarPVCurrent, sizeof(getSolarPVCurrent));
 		if (sc.errorLevel == 0)
 		{
 			unsigned int t = ((sc.data[0] << 8) | sc.data[1]);
-			sendMqtt ("sofar/solarPVAmps" , String(t));
+			state = state+"\"solarPVAmps\":"+String(t)+"}";
 		}
+		sendMqtt ("sofar/state" , state);
 	}
 }
 
@@ -381,7 +386,7 @@ void mqttCallback(String topic, byte* message, unsigned int length) {
 	Serial.println();
 	int messageValue = messageTemp.toInt();
 	// This is where we look at incoming messages and take action based on their content.
-	if (topic=="sofar/standby")
+	if (topic=="sofar/set/standby")
 	{
 		BATTERYSAVE = false;
 		if(messageTemp == "true")
@@ -393,7 +398,7 @@ void mqttCallback(String topic, byte* message, unsigned int length) {
 			}
 		}
 	}
-	else if (topic=="sofar/auto")
+	else if (topic=="sofar/set/auto")
 	{
 		if(messageTemp == "true")
 		{
@@ -409,7 +414,7 @@ void mqttCallback(String topic, byte* message, unsigned int length) {
 			BATTERYSAVE = true;
 		}
 	}
-	else if (topic=="sofar/charge")
+	else if (topic=="sofar/set/charge")
 	{
 		if(messageTemp != "false")
 		{
@@ -426,7 +431,7 @@ void mqttCallback(String topic, byte* message, unsigned int length) {
 			}
 		}
 	}
-	else if (topic=="sofar/discharge")
+	else if (topic=="sofar/set/discharge")
 	{
 		if(messageTemp != "false")
 		{
@@ -507,10 +512,10 @@ void mqttReconnect()
 			updateOLED("NULL", "NULL", "NULL", "MQTT....");
 			delay(1000);
 			// Subscribe or resubscribe to topics.
-			mqtt.subscribe("sofar/standby");
-			mqtt.subscribe("sofar/auto");
-			mqtt.subscribe("sofar/charge");
-			mqtt.subscribe("sofar/discharge");
+			mqtt.subscribe("sofar/set/standby");
+			mqtt.subscribe("sofar/set/auto");
+			mqtt.subscribe("sofar/set/charge");
+			mqtt.subscribe("sofar/set/discharge");
 			updateOLED("NULL", "NULL", "NULL", "");
 		} 
 		else 
@@ -628,9 +633,16 @@ modbusResponce listen()
 
 void sendMqtt(char* topic, String msg_str)
 {
-	char msg[50];
+	char msg[1000];
+	mqtt.setBufferSize(512);
 	msg_str.toCharArray(msg, msg_str.length() + 1); //packaging up the data to publish to mqtt
-	mqtt.publish(topic, msg);	
+	if (mqtt.publish(topic, msg))
+	{
+	}
+	else
+	{
+		Serial.println("MQTT publish failed");
+	}	
 	
 }
 
