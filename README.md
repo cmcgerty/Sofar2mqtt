@@ -46,7 +46,7 @@ sofar/set/auto   - send value "true" or "battery_save"
 sofar/set/charge   - send value in the range 0-3000 (watts)  
 sofar/set/discharge   - send value in the range 0-3000 (watts) 
 
-battery_save is a hybrid auto mode that will charge from excess solar but not dischange.
+battery_save is a hybrid auto mode that will charge from excess solar but not discharge.
 
 (c)Colin McGerty 2021 colin@mcgerty.co.uk  
 calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
@@ -66,7 +66,7 @@ Cut the project board to a convenient size.
 
 ![Board](pics/board.jpg)
 
-Wire the componets according to this circuit diagram.
+Wire the components according to this circuit diagram.
 
 ![Wiring Diagram](pics/diagram.jpg)
 
@@ -112,5 +112,20 @@ Connect the Sofar2MQTT unit to a 5v micro USB power supply.
 Now connect wires A and B to the two wire RS485 input of your inverter, which is marked as 485s on the image of the ME3000SP below.
 
 ![ME3000SP Data Connections](pics/485s.jpg)
+
+# Troubleshooting
+
+Here's what the various things on the OLED screen tell you:
+
+Line 1 is just the project name, nothing else.
+Line 2 will display "Connecting" during start up and lines 3 and 4 will show WIFI and MQTT getting connected.
+Line 2 also has a dot that slowly flashes, once every few seconds. This is when a heartbeat message is being sent to the inverter.
+If a message is read from the inverter that fails the CRC checksum, line 3 will display "CRC-FAULT". This could be caused by a loose or bad RS485 wire or by unsupported features.
+If no response is received to a heartbeat message, lines 3 and 4 show "RS485 ERROR". This could be caused by disconnected or revered RS485 wires.
+During start-up, line 4 shows the Sofar2MQTT software version. Check that you have the latest version at [https://github.com/cmcgerty/Sofar2MQTT](https://github.com/cmcgerty/Sofar2MQTT}
+In normal operation, line 2 shows "Online" which indicates that both WIFI and MQTT are still connected.
+In normal operation, line 3 shows the inverter run state, Standby, Charging, Discharging etc.
+In normal operation, line 4 shows the power in W in or out of the batteries when charging or discharging.
+
 
 
