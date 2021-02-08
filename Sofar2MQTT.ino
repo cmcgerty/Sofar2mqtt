@@ -49,7 +49,7 @@ calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 #include <Arduino.h>
 
 const char* deviceName = "Sofar2MQTT";
-const char* version = "v0.21";
+const char* version = "v0.22";
 
 
 // Wifi parameters. Fill in your wifi network name and password.
@@ -63,8 +63,8 @@ WiFiClient wifi;
 const char* mqttClientID = deviceName;
 const char* mqttServer = "mqtt";
 const uint16_t mqttPort = 1883;
-const char* mqttUsername = "emonpi";
-const char* mqttPassword = "emonpimqtt2016";
+const char* mqttUsername = "auser";
+const char* mqttPassword = "apassword";
 PubSubClient mqtt(wifi);
 
 // SoftwareSerial is used to create a second serial port, which will be deidcated to RS485.
@@ -228,146 +228,167 @@ void sendData()
 	if(millis() >= time_3 + SEND_INTERVAL)
 	{
 		time_3 +=SEND_INTERVAL;
-		String state;
+		String state = "{";
 		modbusResponce rs = sendModbus(getRunningState, sizeof(getRunningState));
 		if (rs.errorLevel == 0)
 		{
 			unsigned int a = ((rs.data[0] << 8) | rs.data[1]);
-			state = "{\"running_state\":"+String(a)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"running_state\":"+String(a);
 		}
 
 		modbusResponce gv = sendModbus(getGridVoltage, sizeof(getGridVoltage));
 		if (gv.errorLevel == 0)
 		{
 			unsigned int b = ((gv.data[0] << 8) | gv.data[1]);
-			state = state+"\"grid_voltage\":"+String(b)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"grid_voltage\":"+String(b);
 		}
 
 		modbusResponce gc = sendModbus(getGridCurrent, sizeof(getGridCurrent));
 		if (gc.errorLevel == 0)
 		{
 			unsigned int c = ((gc.data[0] << 8) | gc.data[1]);
-			state = state+"\"grid_current\":"+String(c)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"grid_current\":"+String(c);
 		}
 
 		modbusResponce gf = sendModbus(getGridFrequency, sizeof(getGridFrequency));
 		if (gf.errorLevel == 0)
 		{
 			unsigned int d = ((gf.data[0] << 8) | gf.data[1]);
-			state = state+"\"grid_freq\":"+String(d)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"grid_freq\":"+String(d);
 		}
 		
 		modbusResponce bp = sendModbus(getBatteryPower, sizeof(getBatteryPower));
 		if (bp.errorLevel == 0)
 		{
 			unsigned int e = ((bp.data[0] << 8) | bp.data[1]);
-			state = state+"\"battery_power\":"+String(e)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"battery_power\":"+String(e);
 		}
 		
 		modbusResponce bv = sendModbus(getBatteryVoltage, sizeof(getBatteryVoltage));
 		if (bv.errorLevel == 0)
 		{
 			unsigned int f = ((bv.data[0] << 8) | bv.data[1]);
-			state = state+"\"battery_voltage\":"+String(f)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"battery_voltage\":"+String(f);
 		}
 		
 		modbusResponce bc = sendModbus(getBatteryCurrent, sizeof(getBatteryCurrent));
 		if (bc.errorLevel == 0)
 		{
 			unsigned int g = ((bc.data[0] << 8) | bc.data[1]);
-			state = state+"\"battery_current\":"+String(g)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"battery_current\":"+String(g);
 		}
 		
 		modbusResponce bs = sendModbus(getBatterySOC, sizeof(getBatterySOC));
 		if (bs.errorLevel == 0)
 		{
 			unsigned int h = ((bs.data[0] << 8) | bs.data[1]);
-			state = state+"\"batterySOC\":"+String(h)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"batterySOC\":"+String(h);
 		}
 
 		modbusResponce bt = sendModbus(getBatteryTemperature, sizeof(getBatteryTemperature));
 		if (bt.errorLevel == 0)
 		{
 			unsigned int i = ((bt.data[0] << 8) | bt.data[1]);
-			state = state+"\"battery_temp\":"+String(i)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"battery_temp\":"+String(i);
 		}
 
 		modbusResponce cy = sendModbus(getBatteryCycles, sizeof(getBatteryCycles));
 		if (cy.errorLevel == 0)
 		{
 			unsigned int j = ((cy.data[0] << 8) | cy.data[1]);
-			state = state+"\"battery_cycles\":"+String(j)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"battery_cycles\":"+String(j);
 		}
 
 		modbusResponce gp = sendModbus(getGridPower, sizeof(getGridPower));
 		if (gp.errorLevel == 0)
 		{
 			unsigned int k = ((gp.data[0] << 8) | gp.data[1]);
-			state = state+"\"grid_power\":"+String(k)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"grid_power\":"+String(k);
 		}
 
 		modbusResponce lp = sendModbus(getLoadPower, sizeof(getLoadPower));
 		if (lp.errorLevel == 0)
 		{
 			unsigned int l = ((lp.data[0] << 8) | lp.data[1]);
-			state = state+"\"consumption\":"+String(l)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"consumption\":"+String(l);
 		}
 
 		modbusResponce sp = sendModbus(getSolarPV, sizeof(getSolarPV));
 		if (sp.errorLevel == 0)
 		{
 			unsigned int m = ((sp.data[0] << 8) | sp.data[1]);
-			state = state+"\"solarPV\":"+String(m)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"solarPV\":"+String(m);
 		}
 
 		modbusResponce st = sendModbus(getSolarPVToday, sizeof(getSolarPVToday));
 		if (st.errorLevel == 0)
 		{
 			unsigned int n = ((st.data[0] << 8) | st.data[1]);
-			state = state+"\"today_generation\":"+String(n)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"today_generation\":"+String(n);
 		}
 
 		modbusResponce et = sendModbus(getGridExportToday, sizeof(getGridExportToday));
 		if (et.errorLevel == 0)
 		{
 			unsigned int o = ((et.data[0] << 8) | et.data[1]);
-			state = state+"\"today_exported\":"+String(o)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"today_exported\":"+String(o);
 		}
 
 		modbusResponce it = sendModbus(getGridImportToday, sizeof(getGridImportToday));
 		if (it.errorLevel == 0)
 		{
 			unsigned int p = ((it.data[0] << 8) | it.data[1]);
-			state = state+"\"today_purchase\":"+String(p)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"today_purchase\":"+String(p);
 		}
 
 		modbusResponce pt = sendModbus(getLoadPowerToday, sizeof(getLoadPowerToday));
 		if (pt.errorLevel == 0)
 		{
 			unsigned int q = ((pt.data[0] << 8) | pt.data[1]);
-			state = state+"\"today_consumption\":"+String(q)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"today_consumption\":"+String(q);
 		}
 
 		modbusResponce vt = sendModbus(getInternalTemp, sizeof(getInternalTemp));
 		if (vt.errorLevel == 0)
 		{
 			unsigned int r = ((vt.data[0] << 8) | vt.data[1]);
-			state = state+"\"inverter_temp\":"+String(r)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"inverter_temp\":"+String(r);
 		}
 
 		modbusResponce ht = sendModbus(getHeatSinkTemp, sizeof(getHeatSinkTemp));
 		if (ht.errorLevel == 0)
 		{
 			unsigned int s = ((ht.data[0] << 8) | ht.data[1]);
-			state = state+"\"inverterHS_temp\":"+String(s)+",";
+			if (!( state == "{")) { state += ","; }
+			state += "\"inverterHS_temp\":"+String(s);
 		}
 
 		modbusResponce sc = sendModbus(getSolarPVCurrent, sizeof(getSolarPVCurrent));
 		if (sc.errorLevel == 0)
 		{
 			unsigned int t = ((sc.data[0] << 8) | sc.data[1]);
-			state = state+"\"solarPVAmps\":"+String(t)+"}";
+			if (!( state == "{")) { state += ","; }
+			state += "\"solarPVAmps\":"+String(t);
 		}
+		state = state+"}";
 		sendMqtt ("sofar/state" , state);
 	}
 }
@@ -636,10 +657,7 @@ void sendMqtt(char* topic, String msg_str)
 	char msg[1000];
 	mqtt.setBufferSize(512);
 	msg_str.toCharArray(msg, msg_str.length() + 1); //packaging up the data to publish to mqtt
-	if (mqtt.publish(topic, msg))
-	{
-	}
-	else
+	if (!(mqtt.publish(topic, msg, true)))
 	{
 		Serial.println("MQTT publish failed");
 	}	
