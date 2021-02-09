@@ -8,8 +8,8 @@ HYD-xx00-ES - Partial support
 
 ![Sofar2MQTT](pics/Sofar2MQTT.jpg)
 
-Sofar2MQTT is a modbus interface for Sofar solar and battery inverters.
-It allows remote control of the inverter and reports the invertor status, power usage, battery state for integration with smart home systems such as [Home Assistant](https://www.home-assistant.io/) and [Node-Red](https://nodered.org/).  
+Sofar2MQTT is a remote control interface for Sofar solar and battery inverters.
+It allows remote control of the inverter and reports the invertor status, power usage, battery state etc for integration with smart home systems such as [Home Assistant](https://www.home-assistant.io/) and [Node-Red](https://nodered.org/).  
 For read only mode, it will send status messages without the inverter needing to be in passive mode.  
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.  
 Designed to work with TTL modules with or without the DR and RE flow control pins. If your TTL module does not have these pins then just ignore the wire from D5. 
@@ -92,7 +92,7 @@ Here's how it looks when completed.
 
 Open Sofar2MQTT.ino in the Arduino IDE.
 
-Edit Sofar2MQTT.ino with your wifi network name and password and your mqtt server details. 
+Edit Sofar2MQTT.ino with your wifi network name and password and your mqtt server details. If you need more than one Sofar2MQTT on your network, make sure you give them unique device names.  
 
 You'll need the libraries for the ESP8266. Follow [this guide](https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/) if you haven't completed that step before.
 
