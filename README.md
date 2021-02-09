@@ -1,16 +1,18 @@
 # Sofar2MQTT
-## An MQTT modbus interface for Sofar solar battery inverters.
+## A smart home interface for Sofar solar and battery inverters.
 
-Fully working with the ME3000SP.  
-Tested on HYD-x000-ES models and confirmed working in read-only mode.
+Supported models:  
+
+ME3000SP - Full support  
+HYD-xx00-ES - Partial support
 
 ![Sofar2MQTT](pics/Sofar2MQTT.jpg)
 
-Sofar2MQTT is a modbus interface for Sofar solar battery inverters.
-It allows remote control of the inverter when in passive mode by sending MQTT messages and reports the invertor status, power usage, battery state etc via outgoing MQTT messages.  
+Sofar2MQTT is a modbus interface for Sofar solar and battery inverters.
+It allows remote control of the inverter and reports the invertor status, power usage, battery state for integration with smart home systems such as [Home Assistant](https://www.home-assistant.io/) and [Node-Red](https://nodered.org/).  
 For read only mode, it will send status messages without the inverter needing to be in passive mode.  
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.  
-Tested and working with either MAX485 or MAX3485 with or without the DR and RE pins. If your TTL module does not have these pins then just ignore the wire from D5. 
+Designed to work with TTL modules with or without the DR and RE flow control pins. If your TTL module does not have these pins then just ignore the wire from D5. 
 
 Subscribe your MQTT client to:
 
@@ -74,7 +76,7 @@ I tend to keep the wires on top of the board, poke them through and solder under
 
 ![Wiring](pics/wiring.jpg)
 
-Make sure you connect the DR and RE pins together. The red arrow below shows where a single wire from D5 connects to both DR and RE.
+Make sure you connect the DR and RE pins together. The red arrow below shows where a single wire from D5 connects to both DR and RE. (If you are using a TTL board without the DR and RE pins, ignore this step.)
 
 ![Short these pins](pics/short.jpg)
 
@@ -121,7 +123,7 @@ Line 1 is just the project name, nothing else.
 Line 2 will display "Connecting" during start up and lines 3 and 4 will show WIFI and MQTT getting connected.  
 Line 2 also has a dot that slowly flashes, once every few seconds. This is when a heartbeat message is being sent to the inverter.  
 If a message is read from the inverter that fails the CRC checksum, line 3 will display "CRC-FAULT". This could be caused by a loose or bad RS485 wire or by unsupported features.  
-If no response is received to a heartbeat message, lines 3 and 4 show "RS485 ERROR". This could be caused by disconnected or revered RS485 wires.  
+If no response is received to a heartbeat message, lines 3 and 4 show "RS485 ERROR". This could be caused by disconnected or reversed RS485 wires.  
 During start-up, line 4 shows the Sofar2MQTT software version. Check that you have the latest version at https://github.com/cmcgerty/Sofar2MQTT  
 In normal operation, line 2 shows "Online" which indicates that both WIFI and MQTT are still connected.  
 In normal operation, line 3 shows the inverter run state, Standby, Charging, Discharging etc.  
