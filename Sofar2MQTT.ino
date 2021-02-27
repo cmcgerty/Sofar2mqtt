@@ -1,15 +1,13 @@
 /*****
-Sofar2MQTT is a modbus interface for Sofar solar battery inverters.
-It allows remote control of the inverter when in passive mode by sending MQTT messages and reports the invertor status, power usage, battery state etc via outgoing MQTT messages.  
+Sofar2mqtt is a remote control interface for Sofar solar and battery inverters.
+It allows remote control of the inverter and reports the invertor status, power usage, battery state etc for integration with smart home systems such as Home Assistant and Node-Red vi MQTT.  
 For read only mode, it will send status messages without the inverter needing to be in passive mode.  
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.  
-Tested and working with either MAX485 or MAX3485 with or without the DR and RE pins. If your TTL module does not have these pins then just ignore the wire from D5.
-Fully working with the ME3000SP.  
-Tested on HYD-x000-ES models and confirmed working in read-only mode.
+Designed to work with TTL modules with or without the DR and RE flow control pins. If your TTL module does not have these pins then just ignore the wire from D5. 
 
 Subscribe your MQTT client to:
 
-sofar/state
+sofar2mqtt/state
 
 Which provides:
 
@@ -36,20 +34,21 @@ solarPVAmps
 
 With the inverter in Passive Mode, send MQTT messages to:
 
-sofar/set/standby   - send value "true"  
-sofar/set/auto   - send value "true" or "battery_save"  
-sofar/set/charge   - send value in the range 0-3000 (watts)  
-sofar/set/discharge   - send value in the range 0-3000 (watts)  
+sofar2mqtt/set/standby   - send value "true"  
+sofar2mqtt/set/auto   - send value "true" or "battery_save"  
+sofar2mqtt/set/charge   - send values in the range 0-3000 (watts)  
+sofar2mqtt/set/discharge   - send values in the range 0-3000 (watts) 
 
-battery_save is a hybrid auto mode that will charge from excess solar but not dischange.
+battery_save is a hybrid auto mode that will charge from excess solar but not discharge.
 
 (c)Colin McGerty 2021 colin@mcgerty.co.uk
 calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 *****/
 #include <Arduino.h>
 
-const char* deviceName = "Sofar2MQTT";
-const char* version = "v0.22";
+//The divice name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
+const char* deviceName = "sofar2mqtt";
+const char* version = "v0.23";
 
 
 // Wifi parameters. Fill in your wifi network name and password.
@@ -208,6 +207,7 @@ void setup_wifi() {
 	Serial.print("Connecting to ");
 	Serial.println(wifiName);
 	updateOLED("NULL", "NULL", "WiFi..", "NULL");
+	WiFi.mode(WIFI_STA);
 	WiFi.begin(wifiName, wifiPassword);
 	while (WiFi.status() != WL_CONNECTED)
 	{
@@ -389,7 +389,11 @@ void sendData()
 			state += "\"solarPVAmps\":"+String(t);
 		}
 		state = state+"}";
-		sendMqtt ("sofar/state" , state);
+		
+		//Prefixt the mqtt topic name with deviceName.
+		String topic (deviceName);
+		topic += "/state";
+		sendMqtt (const_cast<char*>(topic.c_str()), state);
 	}
 }
 
@@ -406,8 +410,19 @@ void mqttCallback(String topic, byte* message, unsigned int length) {
 	}
 	Serial.println();
 	int messageValue = messageTemp.toInt();
+
+	//Set topic names to include the deviceName.
+	String standbyMode (deviceName);
+	standbyMode += "/set/standby";
+	String autoMode (deviceName);
+	autoMode += "/set/auro";
+	String chargeMode (deviceName);
+	chargeMode += "/set/charge";
+	String dischargeMode (deviceName);
+	dischargeMode += "/set/discharge";
+	
 	// This is where we look at incoming messages and take action based on their content.
-	if (topic=="sofar/set/standby")
+	if (topic==standbyMode)
 	{
 		BATTERYSAVE = false;
 		if(messageTemp == "true")
@@ -419,7 +434,7 @@ void mqttCallback(String topic, byte* message, unsigned int length) {
 			}
 		}
 	}
-	else if (topic=="sofar/set/auto")
+	else if (topic==autoMode)
 	{
 		if(messageTemp == "true")
 		{
@@ -435,7 +450,7 @@ void mqttCallback(String topic, byte* message, unsigned int length) {
 			BATTERYSAVE = true;
 		}
 	}
-	else if (topic=="sofar/set/charge")
+	else if (topic==chargeMode)
 	{
 		if(messageTemp != "false")
 		{
@@ -452,7 +467,7 @@ void mqttCallback(String topic, byte* message, unsigned int length) {
 			}
 		}
 	}
-	else if (topic=="sofar/set/discharge")
+	else if (topic==dischargeMode)
 	{
 		if(messageTemp != "false")
 		{
@@ -532,11 +547,22 @@ void mqttReconnect()
 			delay(1000);
 			updateOLED("NULL", "NULL", "NULL", "MQTT....");
 			delay(1000);
+			
+			//Set topic names to include the deviceName.
+			String standbyMode (deviceName);
+			standbyMode += "/set/standby";
+			String autoMode (deviceName);
+			autoMode += "/set/auto";
+			String chargeMode (deviceName);
+			chargeMode += "/set/charge";
+			String dischargeMode (deviceName);
+			dischargeMode += "/set/discharge";
+	
 			// Subscribe or resubscribe to topics.
-			mqtt.subscribe("sofar/set/standby");
-			mqtt.subscribe("sofar/set/auto");
-			mqtt.subscribe("sofar/set/charge");
-			mqtt.subscribe("sofar/set/discharge");
+			mqtt.subscribe(const_cast<char*>(standbyMode.c_str()));
+			mqtt.subscribe(const_cast<char*>(autoMode.c_str()));
+			mqtt.subscribe(const_cast<char*>(chargeMode.c_str()));
+			mqtt.subscribe(const_cast<char*>(dischargeMode.c_str()));
 			updateOLED("NULL", "NULL", "NULL", "");
 		} 
 		else 
@@ -818,6 +844,7 @@ void setup()
 	
 	//Wake up the ME3000 and put it in auto mode to begin with.
 	heartbeat();
+	Serial.println("Set start up mode: Auto");
 	sendModbus(setAuto, sizeof(setAuto));	
 }
 
