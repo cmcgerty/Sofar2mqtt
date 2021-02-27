@@ -16,7 +16,7 @@ Designed to work with TTL modules with or without the DR and RE flow control pin
 
 Subscribe your MQTT client to:
 
-sofar/state
+sofar2mqtt/state
 
 Which provides:
 
@@ -43,10 +43,10 @@ solarPVAmps
 
 With the inverter in Passive Mode, send MQTT messages to:
 
-sofar/set/standby   - send value "true"  
-sofar/set/auto   - send value "true" or "battery_save"  
-sofar/set/charge   - send value in the range 0-3000 (watts)  
-sofar/set/discharge   - send value in the range 0-3000 (watts) 
+sofar2mqtt/set/standby   - send value "true"  
+sofar2mqtt/set/auto   - send value "true" or "battery_save"  
+sofar2mqtt/set/charge   - send values in the range 0-3000 (watts)  
+sofar2mqtt/set/discharge   - send values in the range 0-3000 (watts) 
 
 battery_save is a hybrid auto mode that will charge from excess solar but not discharge.
 
@@ -80,7 +80,8 @@ Make sure you connect the DR and RE pins together. The red arrow below shows whe
 
 ![Short these pins](pics/short.jpg)
 
-Use long pinned mounts on your ESP8266 if you are stacking the optional OLED on top.
+Use long pinned mounts on your ESP8266 if you are stacking the optional OLED on top. Trim the legs so they fit comfortably into the sockets on the circuit board below.  
+I don't recommend soldering the ESP8266 permanently to your circuit board.   
 
 ![Chips](pics/ICs.jpg)
 
@@ -116,6 +117,8 @@ Now connect wires A and B to the two wire RS485 input of your inverter, which is
 ![ME3000SP Data Connections](pics/485s.jpg)
 
 # Troubleshooting
+
+Nothing on the OLED screen? Make sure you solder all the pins on the ESP8266, not just those with wires attached.  
 
 Here's what the various things on the OLED screen tell you:
 
