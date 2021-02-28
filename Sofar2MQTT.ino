@@ -415,7 +415,7 @@ void mqttCallback(String topic, byte* message, unsigned int length) {
 	String standbyMode (deviceName);
 	standbyMode += "/set/standby";
 	String autoMode (deviceName);
-	autoMode += "/set/auro";
+	autoMode += "/set/auto";
 	String chargeMode (deviceName);
 	chargeMode += "/set/charge";
 	String dischargeMode (deviceName);
