@@ -36,19 +36,20 @@ With the inverter in Passive Mode, send MQTT messages to:
 
 sofar2mqtt/set/standby   - send value "true"  
 sofar2mqtt/set/auto   - send value "true" or "battery_save"  
-sofar2mqtt/set/charge   - send values in the range 0-3000 (watts)  
-sofar2mqtt/set/discharge   - send values in the range 0-3000 (watts) 
+sofar2mqtt/set/charge   - send values in the range 0-6000 (watts)  
+sofar2mqtt/set/discharge   - send values in the range 0-6000 (watts) 
 
 battery_save is a hybrid auto mode that will charge from excess solar but not discharge.
 
 (c)Colin McGerty 2021 colin@mcgerty.co.uk
+Thanks to Rich Platt for hybrid model code and testing.
 calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 *****/
 #include <Arduino.h>
 
 //The divice name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
 const char* deviceName = "sofar2mqtt";
-const char* version = "v0.23";
+const char* version = "v1.0rc1";
 
 
 // Wifi parameters. Fill in your wifi network name and password.
@@ -79,12 +80,11 @@ SoftwareSerial RS485Serial(RXPin, TXPin);
 // Sofar run states
 #define waiting 0
 #define check 1
-#define charging 2
-#define checkDischarge 3
-#define discharging 4
-#define epsState 5
-#define faultState 6
-#define permanentFaultState 7
+#define normal 2
+#define epState 3
+#define faultState 4
+#define permanentFaultState 5
+#define normal1 6
 unsigned int INVERTER_RUNNINGSTATE;
 // Battery Save mode is a hybrid mode where the battery will charge from excess solar but not discharge.
 bool BATTERYSAVE = false;
@@ -107,8 +107,8 @@ uint8_t getGridPower[] = {slaveId, readSingleRegister, 0x02, 0x12, 0x00, 0x02, 0
 uint8_t getLoadPower[] = {slaveId, readSingleRegister, 0x02, 0x13, 0x00, 0x02, 0x00, 0x00};
 uint8_t getSolarPV[] = {slaveId, readSingleRegister, 0x02, 0x15, 0x00, 0x02, 0x00, 0x00};
 uint8_t getSolarPVToday[] = {slaveId, readSingleRegister, 0x02, 0x18, 0x00, 0x02, 0x00, 0x00};
-uint8_t getGridExportToday[] = {slaveId, readSingleRegister, 0x02, 0x19, 0x00, 0x02, 0x00, 0x00};
-uint8_t getGridImportToday[] = {slaveId, readSingleRegister, 0x02, 0x1A, 0x00, 0x02, 0x00, 0x00};
+uint8_t getSolarpv1[] = {slaveId, readSingleRegister, 0x02, 0x52, 0x00, 0x02, 0x00, 0x00};
+uint8_t getSolarpv2[] = {slaveId, readSingleRegister, 0x02, 0x55, 0x00, 0x02, 0x00, 0x00};
 uint8_t getLoadPowerToday[] = {slaveId, readSingleRegister, 0x02, 0x1B, 0x00, 0x02, 0x00, 0x00};
 uint8_t getInternalTemp[] = {slaveId, readSingleRegister, 0x02, 0x38, 0x00, 0x02, 0x00, 0x00};
 uint8_t getHeatSinkTemp[] = {slaveId, readSingleRegister, 0x02, 0x39, 0x00, 0x02, 0x00, 0x00};
@@ -341,20 +341,20 @@ void sendData()
 			state += "\"today_generation\":"+String(n);
 		}
 
-		modbusResponce et = sendModbus(getGridExportToday, sizeof(getGridExportToday));
+		modbusResponce et = sendModbus(getSolarpv1, sizeof(getSolarpv1));
 		if (et.errorLevel == 0)
 		{
 			unsigned int o = ((et.data[0] << 8) | et.data[1]);
 			if (!( state == "{")) { state += ","; }
-			state += "\"today_exported\":"+String(o);
+			state += "\"Solarpv1\":"+String(o);
 		}
 
-		modbusResponce it = sendModbus(getGridImportToday, sizeof(getGridImportToday));
+		modbusResponce it = sendModbus(getSolarpv2, sizeof(getSolarpv2));
 		if (it.errorLevel == 0)
 		{
 			unsigned int p = ((it.data[0] << 8) | it.data[1]);
 			if (!( state == "{")) { state += ","; }
-			state += "\"today_purchase\":"+String(p);
+			state += "\"Solarpv2\":"+String(p);
 		}
 
 		modbusResponce pt = sendModbus(getLoadPowerToday, sizeof(getLoadPowerToday));
@@ -683,7 +683,7 @@ void sendMqtt(char* topic, String msg_str)
 	char msg[1000];
 	mqtt.setBufferSize(512);
 	msg_str.toCharArray(msg, msg_str.length() + 1); //packaging up the data to publish to mqtt
-	if (!(mqtt.publish(topic, msg, true)))
+	if (!(mqtt.publish(topic, msg)))
 	{
 		Serial.println("MQTT publish failed");
 	}	
@@ -759,16 +759,10 @@ void updateRunstate()
 				case check:
 					updateOLED("NULL", "NULL", "Checking", "NULL");
 					break;
-				case charging:
-					updateOLED("NULL", "NULL", "Charging", String(batteryWatts())+"W");
+				case normal:
+					updateOLED("NULL", "NULL", "normal", String(batteryWatts())+"W");
 					break;
-				case checkDischarge:
-					updateOLED("NULL", "NULL", "Check Dis", "NULL");
-					break;
-				case discharging:
-					updateOLED("NULL", "NULL", "Discharge", String(batteryWatts())+"W");
-					break;
-				case epsState:
+				case epState:
 					updateOLED("NULL", "NULL", "EPS State", "NULL");
 					break;
 				case faultState:
@@ -792,17 +786,17 @@ void updateRunstate()
 
 unsigned int batteryWatts()
 {	
-	if (INVERTER_RUNNINGSTATE == charging || INVERTER_RUNNINGSTATE == discharging)
+	if (INVERTER_RUNNINGSTATE == normal || INVERTER_RUNNINGSTATE == normal1)
 	{
 		modbusResponce responce = sendModbus(getBatteryPower, sizeof(getBatteryPower));
 		if (responce.errorLevel == 0)
 		{
 			unsigned int w = ((responce.data[0] << 8) | responce.data[1]);
 			switch (INVERTER_RUNNINGSTATE) {
-				case charging:
+				case normal:
 					w = w*10;
 					break;
-				case discharging:
+				case normal1:
 					w = (65535 - w)*10;
 					break;
 			}
@@ -842,7 +836,7 @@ void setup()
 	mqtt.setServer(mqttServer, mqttPort);
 	mqtt.setCallback(mqttCallback);
 	
-	//Wake up the ME3000 and put it in auto mode to begin with.
+	//Wake up the inverter and put it in auto mode to begin with.
 	heartbeat();
 	Serial.println("Set start up mode: Auto");
 	sendModbus(setAuto, sizeof(setAuto));	
@@ -865,9 +859,9 @@ void loop()
 		mqtt.connect(mqttClientID, mqttUsername, mqttPassword);
 	}
 	
-	//Send a heartbaet to keep the ME3000 awake
+	//Send a heartbaet to keep the inverter awake
 	heartbeat();
-	//Check and display the ME3000 runstate
+	//Check and display the runstate
 	updateRunstate();
 	//Transmit all data to MQTT
 	sendData();

@@ -1,14 +1,14 @@
-# Sofar2MQTT
+# Sofar2mqtt
 ## A smart home interface for Sofar solar and battery inverters.
 
 Supported models:  
 
 ME3000SP - Full support  
-HYD-xx00-ES - Partial support
+HYD-xx00-ES - Full support (beta)
 
 ![Sofar2MQTT](pics/Sofar2MQTT.jpg)
 
-Sofar2MQTT is a remote control interface for Sofar solar and battery inverters.
+Sofar2mqtt is a remote control interface for Sofar solar and battery inverters.
 It allows remote control of the inverter and reports the invertor status, power usage, battery state etc for integration with smart home systems such as [Home Assistant](https://www.home-assistant.io/) and [Node-Red](https://nodered.org/).  
 For read only mode, it will send status messages without the inverter needing to be in passive mode.  
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.  
@@ -91,9 +91,9 @@ Here's how it looks when completed.
 
 # Flashing
 
-Open Sofar2MQTT.ino in the Arduino IDE.
+Open either ME3000SP.ino or HYBRID.ino (as appropriate for your inverter model) in the Arduino IDE.
 
-Edit Sofar2MQTT.ino with your wifi network name and password and your mqtt server details. If you need more than one Sofar2MQTT on your network, make sure you give them unique device names.  
+Edit it with your wifi network name and password and your mqtt server details. If you need more than one Sofar2mqtt on your network, make sure you give them unique device names.  
 
 You'll need the libraries for the ESP8266. Follow [this guide](https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/) if you haven't completed that step before.
 
@@ -111,14 +111,15 @@ The OLED screen should show "Online" to indicate a connection to WiFi and MQTT. 
 
 # Connect to Inverter
 
-Connect the Sofar2MQTT unit to a 5v micro USB power supply.
+Connect the Sofar2mqtt unit to a 5v micro USB power supply.
 Now connect wires A and B to the two wire RS485 input of your inverter, which is marked as 485s on the image of the ME3000SP below.
 
 ![ME3000SP Data Connections](pics/485s.jpg)
 
 # Troubleshooting
 
-Nothing on the OLED screen? Make sure you solder all the pins on the ESP8266, not just those with wires attached.  
+Nothing on the OLED screen? Make sure you solder all the pins on the ESP8266, not just those with wires attached.
+No communication with the inverter? Make sure the slave IDs match. Sofar2mqtt assumes slave ID 1 by default. You can change this around line 93 or in the inverter user interface. But my must be the same.   
 
 Here's what the various things on the OLED screen tell you:
 
