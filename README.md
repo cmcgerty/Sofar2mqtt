@@ -118,20 +118,20 @@ Now connect wires A and B to the two wire RS485 input of your inverter, which is
 
 # Troubleshooting
 
-Nothing on the OLED screen? Make sure you solder all the pins on the ESP8266, not just those with wires attached.
-No communication with the inverter? Make sure the slave IDs match. Sofar2mqtt assumes slave ID 1 by default. You can change this around line 93 or in the inverter user interface. But my must be the same.   
+Nothing on the OLED screen? Make sure you solder all the pins on the ESP8266, not just those with wires attached.  
+No communication with the inverter? Make sure the slave IDs match. Sofar2mqtt assumes slave ID 1 by default. You can change this around line 93 or in the inverter user interface. But they must be the same.   
 
 Here's what the various things on the OLED screen tell you:
 
-Line 1 is just the project name, nothing else.  
+Line 1 is the device name, nothing else.  
 Line 2 will display "Connecting" during start up and lines 3 and 4 will show WIFI and MQTT getting connected.  
 Line 2 also has a dot that slowly flashes, once every few seconds. This is when a heartbeat message is being sent to the inverter.  
-If a message is read from the inverter that fails the CRC checksum, line 3 will display "CRC-FAULT". This could be caused by a loose or bad RS485 wire or by unsupported features.  
+If a message is read from the inverter that fails the CRC checksum, line 3 will display "CRC-FAULT". This could be caused by a loose or bad RS485 wire or by unsupported features. A few of these is normal, a lot could indicate a problem.  
 If no response is received to a heartbeat message, lines 3 and 4 show "RS485 ERROR". This could be caused by disconnected or reversed RS485 wires.  
-During start-up, line 4 shows the Sofar2MQTT software version. Check that you have the latest version at https://github.com/cmcgerty/Sofar2MQTT  
+During start-up, line 4 shows the Sofar2mqtt software version. Check that you have the latest version at https://github.com/cmcgerty/Sofar2MQTT  
 In normal operation, line 2 shows "Online" which indicates that both WIFI and MQTT are still connected.  
 In normal operation, line 3 shows the inverter run state, Standby, Charging, Discharging etc.  
-In normal operation, line 4 shows the power in W in or out of the batteries when charging or discharging.  
+In normal operation, line 4 shows the power in Watts in or out of the batteries when charging or discharging.  
 
 
 
