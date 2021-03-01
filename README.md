@@ -118,7 +118,7 @@ Now connect wires A and B to the two wire RS485 input of your inverter, which is
 
 # Troubleshooting
 
-Nothing on the OLED screen? Make sure you solder all the pins on the ESP8266, not just those with wires attached.  
+Nothing on the OLED screen? Make sure you solder all the pins on the OLED and ESP8266, not just those with wires attached.  
 No communication with the inverter? Make sure the slave IDs match. Sofar2mqtt assumes slave ID 1 by default. You can change this around line 93 or in the inverter user interface. But they must be the same.   
 
 Here's what the various things on the OLED screen tell you:
