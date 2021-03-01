@@ -51,6 +51,7 @@ sofar2mqtt/set/discharge   - send values in the range 0-3000 (watts)
 battery_save is a hybrid auto mode that will charge from excess solar but not discharge.
 
 (c)Colin McGerty 2021 colin@mcgerty.co.uk  
+Thanks to Rich Platts for hybrid model code and testing.  
 calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 
 # How To Build
