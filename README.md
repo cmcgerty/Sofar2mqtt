@@ -4,7 +4,7 @@
 Supported models:  
 
 ME3000SP - Full support  
-HYD-xx00-ES - Full support (beta)
+HYD-xx00-ES - Full support
 
 ![Sofar2MQTT](pics/Sofar2MQTT.jpg)
 
