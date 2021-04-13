@@ -48,8 +48,8 @@ calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 #include <Arduino.h>
 
 //The divice name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* deviceName = "sofar2mqtt";
-const char* version = "v1.0rc1";
+const char* deviceName = "Sofar2mqtt";
+const char* version = "v1.0";
 
 
 // Wifi parameters. Fill in your wifi network name and password.
@@ -493,7 +493,6 @@ void batterySave()
 		time_4 +=BATTERYSAVE_INTERVAL;
 		if (BATTERYSAVE)
 		{
-			Serial.print("Battery save mode: ");
 			//Get grid power
 			modbusResponce gp = sendModbus(getGridPower, sizeof(getGridPower));
 			unsigned int p = 0;
@@ -505,10 +504,13 @@ void batterySave()
 			{
 				Serial.println("modbus error");
 			}
+			Serial.print("Grid power: ");
+			Serial.println(p);
+			Serial.print("Battery save mode: ");
 			// Switch to auto when any power flows to the grid.
 			// We leave a little wriggle room because once you start charging the battery, 
 			// gridPower should be floating just above or below zero.
-			if (p<65535/2 || p>65530)
+			if (p<65535/2 || p>65525)
 			{
 				//exporting to the grid
 				modbusResponce responce = sendModbus(setAuto, sizeof(setAuto));
@@ -738,11 +740,12 @@ void updateRunstate()
 	if(millis() >= time_2 + RUNSTATE_INTERVAL)
 	{
 		time_2 +=RUNSTATE_INTERVAL;
-		Serial.println("Get runstate");
+		Serial.print("Get runstate: ");
 		modbusResponce responce = sendModbus(getRunningState, sizeof(getRunningState));
 		if (responce.errorLevel == 0)
 		{
 			INVERTER_RUNNINGSTATE = ((responce.data[0] << 8) | responce.data[1]);
+			Serial.println(INVERTER_RUNNINGSTATE);
 			switch (INVERTER_RUNNINGSTATE) {
 				case waiting:
 				{
