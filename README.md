@@ -58,10 +58,12 @@ calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 
 Parts List:
 1. ESP8266 Microcontroller
-2. MAX485 or MAX3485 TTL to RS485 board
+2. MAX485 or MAX3485 TTL to RS485 board*
 3. Wemos 64x48 OLED Screen (optional)
 4. A small project board
 5. A few wires and a little solder
+
+*The MAX3485 (which is red, not blue like the MAX485 shown here) is preferred as it is much more stable because it uses 3.3v logic, just like the ESP8366. The MAX485 uses 5v logic but is somewhat tolerant of 3.3v and is generally cheaper and more widely available. I use a MAX485 but many people have reported problems with this and if you can find a MAX3485 then you should use that. MAX3485 boards do not have DR and RE flow control pins, so just skip the wire from pin D5 in the wiring diagram below.
 
 ![Parts](pics/parts.jpg)
 
