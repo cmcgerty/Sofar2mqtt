@@ -94,9 +94,9 @@ Here's how it looks when completed.
 
 # Flashing
 
-Open either ME3000SP.ino or HYBRID.ino (as appropriate for your inverter model) in the Arduino IDE.
+Edit the file Sofar2mqtt.ino and remmove the // at the start of the second OR third line as appropriate for your inverter model (ME3000SP or a Hybrid HYD model).
 
-Edit it with your wifi network name and password and your mqtt server details. If you need more than one Sofar2mqtt on your network, make sure you give them unique device names.  
+Add your wifi network name and password and your mqtt server details in the section below. If you need more than one Sofar2mqtt on your network, make sure you give them unique device names.  
 
 You'll need the libraries for the ESP8266. Follow [this guide](https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/) if you haven't completed that step before.
 
