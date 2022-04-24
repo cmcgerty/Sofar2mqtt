@@ -94,7 +94,7 @@ Here's how it looks when completed.
 
 # Flashing
 
-Edit the file Sofar2mqtt.ino and remmove the // at the start of the second OR third line as appropriate for your inverter model (ME3000SP or a Hybrid HYD model).
+Edit the file Sofar2mqtt.ino and remove the // at the start of the second OR third line as appropriate for your inverter model (ME3000SP or a Hybrid HYD model).
 
 Add your wifi network name and password and your mqtt server details in the section below. If you need more than one Sofar2mqtt on your network, make sure you give them unique device names.  
 
