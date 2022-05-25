@@ -16,7 +16,7 @@ Designed to work with TTL modules with or without the DR and RE flow control pin
 
 Subscribe your MQTT client to:
 
-sofar2mqtt/state
+Sofar2mqtt/state
 
 Which provides:
 
@@ -43,10 +43,10 @@ solarPVAmps
 
 With the inverter in Passive Mode, send MQTT messages to:
 
-sofar2mqtt/set/standby   - send value "true"  
-sofar2mqtt/set/auto   - send value "true" or "battery_save"  
-sofar2mqtt/set/charge   - send values in the range 0-3000 (watts)  
-sofar2mqtt/set/discharge   - send values in the range 0-3000 (watts) 
+Sofar2mqtt/set/standby   - send value "true"  
+Sofar2mqtt/set/auto   - send value "true" or "battery_save"  
+Sofar2mqtt/set/charge   - send values in the range 0-3000 (watts)  
+Sofar2mqtt/set/discharge   - send values in the range 0-3000 (watts) 
 
 battery_save is a hybrid auto mode that will charge from excess solar but not discharge.
 
