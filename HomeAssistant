@@ -1,1 +1,59 @@
+sensor:
+- platform: mqtt
+name: Inverter State
+state_topic: "Sofar2mqtt/state"
+value_template: >-
+{% if value_json.running_state == 0 %}
+{{ "0-Standby" }}
+{% elif value_json.running_state == 1 %}
+{{ "1-Check charge" }}
+{% elif value_json.running_state == 2 %}
+{{ "2-Charging" }}
+{% elif value_json.running_state == 3 %}
+{{ "3-Check discharge" }}
+{% elif value_json.running_state == 4 %}
+{{ "4-Discharging" }}
+{% elif value_json.running_state == 5 %}
+{{ "5-EPSState" }}
+{% elif value_json.running_state == 6 %}
+{{ "6-Fault" }}
+{% elif value_json.running_state == 7 %}
+{{ "7-Perminant Fault" }}
+{% else %}
+{{ "Undeterminated" }}
+{% endif %}
+unit_of_measurement: ''
+expire_after: 23
 
+- platform: mqtt
+name: sofar - Grid Voltage
+state_topic: "Sofar2mqtt/state"
+value_template: "{{ value_json.grid_voltage / 10 }}"
+unit_of_measurement: 'V'
+expire_after: 23
+
+- platform: mqtt
+name: sofar - Grid Current
+state_topic: "Sofar2mqtt/state"
+value_template: "{{ value_json.grid_current / 10 }}"
+unit_of_measurement: 'A'
+expire_after: 23
+
+- platform: mqtt
+name: sofar - Grid Frequency
+state_topic: "Sofar2mqtt/state"
+value_template: "{{ value_json.grid_freq / 100 }}"
+unit_of_measurement: 'Hz'
+expire_after: 23
+
+- platform: mqtt
+name: sofar - Battery Current
+state_topic: "Sofar2mqtt/state"
+value_template: >-
+{% if value_json.battery_power > (65535 / 2) %}
+{{ -(65535 - value_json.battery_power) * 10 }}
+{% else %}
+{{ (value_json.battery_power) * 10 }}
+{% endif %}
+unit_of_measurement: 'W'
+expire_after: 23
