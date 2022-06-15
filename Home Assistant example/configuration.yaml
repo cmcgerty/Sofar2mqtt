@@ -1,4 +1,4 @@
-# Sofar ME3000SP MQTT sensors
+#Sofar ME3000SP Sofar2mqtt sensors
 sensor:
   - platform: integration
     name: Energy_from_battery 
@@ -96,7 +96,7 @@ sensor sofar:
     device_class: power
     state_class: measurement
     value_template: > 
-      {% if is_state('inverter_running_state', '4') and (value_json.battery_power > 32767) %}
+      {% if (value_json.battery_power > 32767) %}
       {{ (65535 - value_json.battery_power) * 10 }}
       {% else %}
       {{ 0 }}
@@ -109,7 +109,7 @@ sensor sofar:
     device_class: power
     state_class: measurement
     value_template: > 
-      {% if (value_json.battery_power < 32767) and is_state('inverter_running_state', '2') %}
+      {% if (value_json.battery_power < 32767) %}
       {{ (value_json.battery_power) * 10 }}
       {% else %}
       {{ 0 }}
