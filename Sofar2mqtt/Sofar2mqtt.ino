@@ -4,7 +4,7 @@
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
 const char* deviceName = "Sofar2mqtt";
-const char* version = "v2.0b1";
+const char* version = "v2.0.1";
 
 #define WIFI_SSID	"xxxxx"
 #define WIFI_PASSWORD	"xxxxx"
@@ -96,7 +96,7 @@ calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 #endif
 
 #define RS485_TRIES 8       // x 50mS to wait for RS485 input chars.
-// Wifi parameters. Fill in your wifi network name and password.
+// Wifi parameters.
 #include <ESP8266WiFi.h>
 const char* wifiName = WIFI_SSID;
 WiFiClient wifi;
@@ -407,7 +407,7 @@ void mqttCallback(String topic, byte *message, unsigned int length)
 
 	Serial.println();
 	int   messageValue = messageTemp.toInt();
-	bool  messageBool = (messageTemp != "false");
+	bool  messageBool = ((messageTemp != "false") && (messageTemp != "battery_save"));
 
 	if(cmd == "standby")
 	{
