@@ -4,7 +4,7 @@
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
 const char* deviceName = "Sofar2mqtt";
-const char* version = "v2.0.1";
+const char* version = "v2.1";
 
 #define WIFI_SSID	"xxxxx"
 #define WIFI_PASSWORD	"xxxxx"
