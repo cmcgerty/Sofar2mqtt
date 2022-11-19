@@ -29,10 +29,11 @@ Which provides:
 running_state  
 grid_voltage  
 grid_current  
-grid_freq  
-battery_power  
+grid_freq
+systemIO_power (AC side of inverter) 
+battery_power  (DC side of inverter)
 battery_voltage  
-battery_current  
+battery_current
 batterySOC  
 battery_temp  
 battery_cycles  
@@ -45,7 +46,8 @@ today_purchase
 today_consumption  
 inverter_temp  
 inverterHS_temp  
-solarPVAmps  
+solarPVAmps
+  
 
 With the inverter in Passive Mode, send MQTT messages to:
 
@@ -168,6 +170,7 @@ bool BATTERYSAVE = false;
 #define SOFAR_REG_BATTTEMP	0x0211
 #define SOFAR_REG_GRIDW		0x0212
 #define SOFAR_REG_LOADW		0x0213
+#define SOFAR_REG_SYSIOW	0x0214
 #define SOFAR_REG_PVW		0x0215
 #define SOFAR_REG_PVDAY		0x0218
 #define SOFAR_REG_EXPDAY	0x0219
@@ -201,6 +204,7 @@ static struct mqtt_status_register  mqtt_status_reads[] =
 	{ SOFAR_REG_BATTW, "battery_power" },
 	{ SOFAR_REG_BATTV, "battery_voltage" },
 	{ SOFAR_REG_BATTA, "battery_current" },
+	{ SOFAR_REG_SYSIOW, "systemIO_power" },
 	{ SOFAR_REG_BATTSOC, "batterySOC" },
 	{ SOFAR_REG_BATTTEMP, "battery_temp" },
 	{ SOFAR_REG_BATTCYC, "battery_cycles" },

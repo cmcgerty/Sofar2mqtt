@@ -23,8 +23,9 @@ Which provides:
 running_state  
 grid_voltage  
 grid_current  
-grid_freq  
-battery_power  
+grid_freq
+systemIO_power (AC side of inverter) 
+battery_power  (DC side of inverter) 
 battery_voltage  
 battery_current  
 batterySOC  
