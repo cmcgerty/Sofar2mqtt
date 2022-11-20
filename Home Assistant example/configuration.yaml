@@ -1,4 +1,5 @@
 #Sofar ME3000SP Sofar2mqtt sensors
+#Updated to now include the new MQTT sensors required for 2022.12 release of Home Assistant onwards 
 sensor:
   - platform: integration
     name: Energy_from_battery 
@@ -82,6 +83,18 @@ mqtt:
         {{ -(65535 - value_json.battery_power) * 10 }}
         {% else %}
         {{ (value_json.battery_power) * 10 }}
+        {% endif %} 
+        
+    - name: "inverter_system_power"
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      value_template: > 
+        {% if value_json.systemIO_power > (65535 / 2) %}
+        {{ -(65535 - value_json.systemIO_power) * 10 }}
+        {% else %}
+        {{ (value_json.systemIO_power) * 10 }}
         {% endif %} 
     
     - name: "inverter_battery_discharge"
