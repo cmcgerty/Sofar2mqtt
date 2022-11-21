@@ -92,9 +92,9 @@ mqtt:
       state_class: measurement
       value_template: > 
         {% if value_json.systemIO_power > (65535 / 2) %}
-        {{ -(65535 - value_json.systemIO_power) * 10 }}
+        {{ (65535 - value_json.systemIO_power) * 10 }}
         {% else %}
-        {{ (value_json.systemIO_power) * 10 }}
+        {{ -(value_json.systemIO_power) * 10 }}
         {% endif %} 
     
     - name: "inverter_battery_discharge"
