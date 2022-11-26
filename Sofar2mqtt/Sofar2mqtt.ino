@@ -4,7 +4,7 @@
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
 const char* deviceName = "Sofar2mqtt";
-const char* version = "v2.1";
+const char* version = "v2.1.1";
 
 #define WIFI_SSID	"xxxxx"
 #define WIFI_PASSWORD	"xxxxx"
@@ -468,7 +468,7 @@ void batterySave()
 		// Switch to auto when any power flows to the grid.
 		// We leave a little wriggle room because once you start charging the battery,
 		// gridPower should be floating just above or below zero.
-		if(p < 65535/2 || p > 65525)
+		if((p < 65535/2 || p > 65525) && (INVERTER_RUNNINGSTATE != discharging))
 		{
 			//exporting to the grid
 			if(!sendPassiveCmd(SOFAR_SLAVE_ID, SOFAR_FN_AUTO, 0, "bsave_auto"))
