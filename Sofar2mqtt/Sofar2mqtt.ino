@@ -1,17 +1,19 @@
 // Update these to match your inverter/network.
-#define INVERTER_ME3000				// Uncomment for ME3000
-//#define INVERTER_HYBRID			// Uncomment for Hybrid
+//#define INVERTER_ME3000				// Uncomment for ME3000
+#define INVERTER_HYBRID			// Uncomment for Hybrid
+
+#define NO_OLED 1  // Set this to 0 to activate OLED display.
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
 const char* deviceName = "Sofar2mqtt";
 const char* version = "v2.1.1";
 
-#define WIFI_SSID	"xxxxx"
-#define WIFI_PASSWORD	"xxxxx"
-#define MQTT_SERVER	"mqtt"
+#define WIFI_SSID	"MyWifiSSid"
+#define WIFI_PASSWORD	"wifipassword"
+#define MQTT_SERVER	"192.168.1.94"
 #define MQTT_PORT	1883
-#define MQTT_USERNAME	"auser"			// Empty string for none.
-#define MQTT_PASSWORD	"apassword"
+#define MQTT_USERNAME	"mqttuser"			// Empty string for none.
+#define MQTT_PASSWORD	"mqttpassword"
 
 /*****
 Sofar2mqtt is a remote control interface for Sofar solar and battery inverters.
@@ -19,6 +21,8 @@ It allows remote control of the inverter and reports the invertor status, power 
 For read only mode, it will send status messages without the inverter needing to be in passive mode.  
 It's designed to run on an ESP8266 microcontroller with a TTL to RS485 module such as MAX485 or MAX3485.  
 Designed to work with TTL modules with or without the DR and RE flow control pins. If your TTL module does not have these pins then just ignore the wire from D5. 
+
+Added a webserver to original project with http://hostname/jsonOut or just http://hostname to get status info. OTA updates are also supported.
 
 Subscribe your MQTT client to:
 
@@ -102,6 +106,14 @@ calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 #include <ESP8266WiFi.h>
 const char* wifiName = WIFI_SSID;
 WiFiClient wifi;
+
+//Webserver stuff
+#include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
+#include <ArduinoOTA.h>
+
+ESP8266WebServer server(80);
+char jsonstring[1000];
 
 // MQTT parameters
 #include <PubSubClient.h>
@@ -278,52 +290,61 @@ String oledLine2;
 String oledLine3;
 String oledLine4;
 
+char* line1;
+char* line2;
+char* line3;
+char* line4;
+
 void updateOLED(String line1, String line2, String line3, String line4)
 {
-	display.clearDisplay();
-	display.setTextSize(1);
-	display.setTextColor(WHITE);
-	display.setCursor(0,0);
+  if (NO_OLED == 0)
+  {
+	  display.clearDisplay();
+	  display.setTextSize(1);
+	  display.setTextColor(WHITE);
+	  display.setCursor(0,0);
 
-	if(line1 != "NULL")
-	{
-		display.println(line1);
-		oledLine1 = line1;
-	}
-	else
-		display.println(oledLine1);
+  	if(line1 != "NULL")
+  	{
+	  	display.println(line1);
+	  	oledLine1 = line1;
+	  }
+	  else
+	  	display.println(oledLine1);
 
-	display.setCursor(0,12);
+	  display.setCursor(0,12);
 
-	if(line2 != "NULL")
-	{
-		display.println(line2);
-		oledLine2 = line2;
-	}
-	else
-		display.println(oledLine2);
+  	if(line2 != "NULL")
+	  {
+		  display.println(line2);
+		  oledLine2 = line2;
+	  }
+	  else
+	  	display.println(oledLine2);
 
-	display.setCursor(0,24);
+	  display.setCursor(0,24);
 
-	if(line3 != "NULL")
-	{
-		display.println(line3);
-		oledLine3 = line3;
-	}
-	else
-		display.println(oledLine3);
+	  if(line3 != "NULL")
+	  {
+		  display.println(line3);
+		  oledLine3 = line3;
+	  }
+	  else
+		  display.println(oledLine3);
 
-	display.setCursor(0,36);
+	  display.setCursor(0,36);
 
-	if(line4 != "NULL")
-	{
-		display.println(line4);
-		oledLine4 = line4;
-	}
-	else
-		display.println(oledLine4);
+	  if(line4 != "NULL")
+	  {
+		  display.println(line4);
+		  oledLine4 = line4;
+	  }
+	  else
+		  display.println(oledLine4);
 
-	display.display();
+	  display.display();
+  }
+    
 }
 
 // Connect to WiFi
@@ -349,6 +370,69 @@ void setup_wifi()
 	Serial.print("WiFi connected - ESP IP address: ");
 	Serial.println(WiFi.localIP());
 	updateOLED("NULL", "NULL", "WiFi....", "NULL");
+}
+
+// Webserver root page
+void handleRoot() {
+  char temp[800];
+  int sec = millis() / 1000;
+  int min = sec / 60;
+  int hr = min / 60;
+
+  snprintf(temp, 800,
+
+           "<html>\
+  <head>\
+    <meta http-equiv='refresh' content='5'/>\
+    <title>Sofar2MQTT Web</title>\
+    <style>\
+      body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
+    </style>\
+  </head>\
+  <body>\
+    <h1>Sofar2MQTT </h1>\
+    <p>Uptime: %02d:%02d:%02d</p>\
+  </body>\
+  ",
+
+
+           hr, min % 60, sec % 60
+          );
+  strncat(temp, line1, sizeof(temp)-1);
+  strncat(temp, " <BR>", sizeof(temp)-1);
+  strncat(temp, line2, sizeof(temp)-1);
+  strncat(temp, " <BR>", sizeof(temp)-1);
+  strncat(temp, line3, sizeof(temp)-1);
+//  strncat(temp, " <BR> Battery Power:", sizeof(temp)-1);
+//  strncat(temp, line4, sizeof(temp)-1);
+  strncat(temp, " <BR>", sizeof(temp)-1);
+  strncat(temp, "<BR><a href='/jsonOut'>JsonOutput</a><HR>", sizeof(temp)-1);
+  strncat(temp, "<BR><a href='/reboot'>REBOOT DEVICE</a><HR>", sizeof(temp)-1);
+  strncat(temp, "</html>", sizeof(temp)-1);
+  server.send(200, "text/html", temp);
+}
+
+void handleNotFound() {
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += (server.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+
+  for (uint8_t i = 0; i < server.args(); i++) {
+    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  }
+
+  server.send(404, "text/plain", message);
+}
+
+void handleJsonOut()
+{
+
+  server.send(200, "application/json", jsonstring);
 }
 
 int addStateInfo(String &state, uint16_t reg, String human)
@@ -387,6 +471,7 @@ void sendData()
 		String topic(deviceName);
 		topic += "/state";
 		sendMqtt(const_cast<char*>(topic.c_str()), state);
+		state.toCharArray(jsonstring, 1000);
 	}
 }
 
@@ -493,6 +578,7 @@ void mqttReconnect()
 		delay(200);
 		Serial.print("Attempting MQTT connection...");
 		updateOLED("NULL", "connecting", "NULL", "MQTT.");
+		line1 = "Connecting MQTT... Check your  settings";
 		delay(500);
 		updateOLED("NULL", "NULL", "NULL", "MQTT..");
 
@@ -501,6 +587,7 @@ void mqttReconnect()
 		{
 			Serial.println("connected");
 			delay(1000);
+			line1 = "MQTT Connected";
 			updateOLED("NULL", "NULL", "NULL", "MQTT....");
 			delay(1000);
 
@@ -530,6 +617,7 @@ void mqttReconnect()
 		Serial.print(mqtt.state());
 		Serial.println(" try again in 5 seconds");
 		updateOLED("NULL", "NULL", "NULL", "MQTT...");
+		line4 = "MQTT Retrying....";
 
 		// Wait 5 seconds before retrying
 		delay(5000);
@@ -718,7 +806,7 @@ void heartbeat()
 		if(!(ret = sendModbus(sendHeartbeat, sizeof(sendHeartbeat), NULL)))
 		{
 			String flashDot;
-
+      
 			if (oledLine2 == "Online")
 				flashDot = "Online.";
 
@@ -730,14 +818,16 @@ void heartbeat()
 
 			if (oledLine4 == "ERROR")
 				oledLine4 = "";
-
+        
 			updateOLED("NULL", flashDot, "NULL", "NULL");
 		}
 		else
 		{
 			Serial.print("Bad heartbeat ");
 			Serial.println(ret);
+			line2 = "RS485 ERROR";
 			updateOLED("NULL", "NULL", "RS485", "ERROR");
+			
 		}
 
 		//Flash the LED
@@ -767,42 +857,56 @@ void updateRunstate()
 			{
 				case waiting:
 					if (BATTERYSAVE)
+          {
 						updateOLED("NULL", "NULL", "Batt Save", "Waiting");
+						line3 = "BATTERY SAVE MODE";
+          }
 					else
+          {
 						updateOLED("NULL", "NULL", "Standby", "");
+						line3 = "STANDBY";
+          }
 					break;
 
 				case check:
 					updateOLED("NULL", "NULL", "Checking", "NULL");
+					line3 = "Checking";
 					break;
 
 				case charging:
 					updateOLED("NULL", "NULL", HUMAN_CHARGING, String(batteryWatts())+"W");
+					line3 = "Human Charging";
 					break;
 
 #ifdef INVERTER_ME3000
 				case checkDischarge:
 					updateOLED("NULL", "NULL", "Check Dis", "NULL");
+					line3 = "Check Discharge";
 					break;
 #endif
 				case discharging:
 					updateOLED("NULL", "NULL", HUMAN_DISCHARGING, String(batteryWatts())+"W");
+					line3 = "Human Discharge";
 					break;
 
 				case epsState:
 					updateOLED("NULL", "NULL", "EPS State", "NULL");
+					line3 = "EPS";
 					break;
 
 				case faultState:
 					updateOLED("NULL", "NULL", "FAULT", "NULL");
+					line3 = "Fault";
 					break;
 
 				case permanentFaultState:
 					updateOLED("NULL", "NULL", "PERMFAULT", "NULL");
+					line3 = "Permanent Fault";
 					break;
 
 				default:
 					updateOLED("NULL", "NULL", "Runstate?", "NULL");
+					line3 = "Runstate?";
 					break;
 			}
 		}
@@ -810,6 +914,7 @@ void updateRunstate()
 		{
 			Serial.println(response.errorMessage);
 			updateOLED("NULL", "NULL", "CRC-FAULT", "NULL");
+			line3 = "CRC-Error  - Check RS485 wiring";
 		}
 	}
 }
@@ -840,6 +945,7 @@ unsigned int batteryWatts()
 		{
 			Serial.println(response.errorMessage);
 			updateOLED("NULL", "NULL", "CRC-FAULT", "NULL");
+			line3 = "CRC-Fault";
 		}
 	}
 
@@ -858,12 +964,30 @@ void setup()
 	delay(500);
 
 	//Turn on the OLED
-	display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize OLED with the I2C addr 0x3C (for the 64x48)
-	display.clearDisplay();
-	display.display();
-	updateOLED(deviceName, "connecting", "", version);
+  if (NO_OLED == 0)
+  {
+	  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize OLED with the I2C addr 0x3C (for the 64x48)
+	  display.clearDisplay();
+	  display.display();
+	  updateOLED(deviceName, "connecting", "", version);
+  }
 
 	setup_wifi();
+
+	// setup the webserver and OTA
+
+  ArduinoOTA.setHostname("Sofar2MQTT");
+  ArduinoOTA.begin();
+  server.on("/", handleRoot);
+  server.onNotFound(handleNotFound);
+  server.on("/jsonOut", handleJsonOut);
+  server.on("/reboot", [](){
+    ESP.restart();
+  });
+  server.begin();
+  Serial.println("HTTP server started");
+  line4 = "0";
+
 
 	mqtt.setServer(MQTT_SERVER, MQTT_PORT);
 	mqtt.setCallback(mqttCallback);
@@ -877,14 +1001,20 @@ void setup()
 
 void loop()
 {
+	  //Handle webserver and OTA requests
+	  ArduinoOTA.handle();
+  	server.handleClient();
+    
 	//make sure mqtt is still connected
 	if((!mqtt.connected()) || !mqtt.loop())
 	{
 		updateOLED("NULL", "Offline", "NULL", "NULL");
+		line2 = "MQTT Offline";
 		mqttReconnect();
 	}
 	else
 		updateOLED("NULL", "Online", "NULL", "NULL");
+		line2 = "MQTT Online";
 
 	//Send a heartbeat to keep the inverter awake
 	heartbeat();
