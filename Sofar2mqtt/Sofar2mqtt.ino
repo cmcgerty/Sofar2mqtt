@@ -176,6 +176,8 @@ bool BATTERYSAVE = false;
 #define SOFAR_REG_EXPDAY	0x0219
 #define SOFAR_REG_IMPDAY	0x021a
 #define SOFAR_REG_LOADDAY	0x021b
+#define SOFAR_REG_CHARGDAY	0x0224
+#define SOFAR_REG_DISCHDAY	0x0225
 #define SOFAR_REG_BATTCYC	0x022c
 #define SOFAR_REG_PVA		0x0236
 #define SOFAR_REG_INTTEMP	0x0238
@@ -215,6 +217,8 @@ static struct mqtt_status_register  mqtt_status_reads[] =
 #ifdef INVERTER_ME3000
 	{ SOFAR_REG_EXPDAY, "today_exported" },
 	{ SOFAR_REG_IMPDAY, "today_purchase" },
+	{ SOFAR_REG_CHARGDAY, "today_charged" },
+	{ SOFAR_REG_DISCHDAY, "today_discharged" },
 #elif defined INVERTER_HYBRID
 	{ SOFAR_REG_PV1, "Solarpv1" },
 	{ SOFAR_REG_PV2, "Solarpv2" },
