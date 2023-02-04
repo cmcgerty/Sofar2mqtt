@@ -89,6 +89,9 @@ calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 
 #include <Arduino.h>
 
+// OTA
+#include <ArduinoOTA.h>
+
 #define SOFAR_SLAVE_ID          0x01
 
 #ifdef INVERTER_ME3000
@@ -176,6 +179,8 @@ bool BATTERYSAVE = false;
 #define SOFAR_REG_EXPDAY	0x0219
 #define SOFAR_REG_IMPDAY	0x021a
 #define SOFAR_REG_LOADDAY	0x021b
+#define SOFAR_REG_CHARGDAY	0x0224
+#define SOFAR_REG_DISCHDAY	0x0225
 #define SOFAR_REG_BATTCYC	0x022c
 #define SOFAR_REG_PVA		0x0236
 #define SOFAR_REG_INTTEMP	0x0238
@@ -215,6 +220,8 @@ static struct mqtt_status_register  mqtt_status_reads[] =
 #ifdef INVERTER_ME3000
 	{ SOFAR_REG_EXPDAY, "today_exported" },
 	{ SOFAR_REG_IMPDAY, "today_purchase" },
+	{ SOFAR_REG_CHARGDAY, "today_charged" },
+	{ SOFAR_REG_DISCHDAY, "today_discharged" },
 #elif defined INVERTER_HYBRID
 	{ SOFAR_REG_PV1, "Solarpv1" },
 	{ SOFAR_REG_PV2, "Solarpv2" },
@@ -345,6 +352,40 @@ void setup_wifi()
 	}
 
 	WiFi.hostname(deviceName);
+
+	ArduinoOTA.onStart([]() {
+		String type;
+		if (ArduinoOTA.getCommand() == U_FLASH) {
+		type = "sketch";
+		} else { // U_FS
+		type = "filesystem";
+		}
+
+		// NOTE: if updating FS this would be the place to unmount FS using FS.end()
+		Serial.println("Start updating " + type);
+	});
+	ArduinoOTA.onEnd([]() {
+		Serial.println("\nEnd");
+	});
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+		Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+	});
+	ArduinoOTA.onError([](ota_error_t error) {
+		Serial.printf("Error[%u]: ", error);
+		if (error == OTA_AUTH_ERROR) {
+		Serial.println("Auth Failed");
+		} else if (error == OTA_BEGIN_ERROR) {
+		Serial.println("Begin Failed");
+		} else if (error == OTA_CONNECT_ERROR) {
+		Serial.println("Connect Failed");
+		} else if (error == OTA_RECEIVE_ERROR) {
+		Serial.println("Receive Failed");
+		} else if (error == OTA_END_ERROR) {
+		Serial.println("End Failed");
+		}
+	});
+	ArduinoOTA.begin();
+
 	Serial.println("");
 	Serial.print("WiFi connected - ESP IP address: ");
 	Serial.println(WiFi.localIP());
@@ -897,6 +938,9 @@ void loop()
 
 	//Set battery save state
 	batterySave();
+
+	// OTA handle
+	ArduinoOTA.handle();
 
 	delay(100);
 }
