@@ -1,0 +1,218 @@
+#Sofar ME3000SP Sofar2mqtt sensors
+#Updated to now include the new MQTT sensors required for 2022.12 release of Home Assistant onwards 
+sensor:
+  - platform: integration
+    name: Energy_from_battery 
+    source: sensor.inverter_battery_discharge
+    unit_prefix: k
+    unit_time: h
+    method: left
+    
+  - platform: integration
+    name: Energy_to_battery
+    source: sensor.inverter_battery_charge
+    unit_prefix: k
+    unit_time: h
+    method: left
+    
+mqtt:
+  sensor:
+    - name: "inverter_running_state"
+      state_topic: "Sofar2mqtt/state"
+      value_template: >-
+        {% if value_json.running_state == 0 %}
+        {{ "0-Standby" }}
+        {% elif value_json.running_state == 1 %}
+        {{ "1-Check charge" }}
+        {% elif value_json.running_state == 2 %}
+        {{ "2-Charging" }}
+        {% elif value_json.running_state == 3 %}
+        {{ "3-Check discharge" }}
+        {% elif value_json.running_state == 4 %}
+        {{ "4-Discharging" }}
+        {% elif value_json.running_state == 5 %}
+        {{ "5-EPSState" }}
+        {% elif value_json.running_state == 6 %}
+        {{ "6-Fault" }}
+        {% elif value_json.running_state == 7 %}
+        {{ "7-Perminant Fault" }}
+        {% else %}
+        {{ "Undeterminated" }}
+        {% endif %} 
+    
+    - name: "grid_voltage"
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "V"
+      device_class: voltage
+      state_class: measurement
+      value_template: "{{ value_json.grid_voltage / 10}}"
+    
+    - name: "grid_current"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "A"
+      device_class: current
+      state_class: measurement
+      value_template: "{{ value_json.grid_current /100 }}"
+    
+    - name: "grid_frequency"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "Hz"
+      device_class: frequency
+      state_class: measurement
+      value_template: "{{ value_json.grid_freq /100 }}"
+    
+    - name: "grid_power"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      value_template: >-
+        {% if value_json.grid_power > (65535 / 2) %}
+        {{ (65535 - value_json.grid_power) * 10 }}
+        {% else %}
+        {{ -(value_json.grid_power) * 10 }}
+        {% endif %} 
+    
+    - name: "inverter_battery_power"
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      value_template: > 
+        {% if value_json.battery_power > (65535 / 2) %}
+        {{ -(65535 - value_json.battery_power) * 10 }}
+        {% else %}
+        {{ (value_json.battery_power) * 10 }}
+        {% endif %} 
+        
+    - name: "inverter_system_power"
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      value_template: > 
+        {% if value_json.systemIO_power > (65535 / 2) %}
+        {{ (65535 - value_json.systemIO_power) * 10 }}
+        {% else %}
+        {{ -(value_json.systemIO_power) * 10 }}
+        {% endif %} 
+    
+    - name: "inverter_battery_discharge"
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      value_template: > 
+        {% if (value_json.battery_power > 32767) %}
+        {{ (65535 - value_json.battery_power) * 10 }}
+        {% else %}
+        {{ 0 }}
+        {% endif %} 
+    
+    - name: "inverter_battery_charge"
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      value_template: > 
+        {% if (value_json.battery_power < 32767) %}
+        {{ (value_json.battery_power) * 10 }}
+        {% else %}
+        {{ 0 }}
+        {% endif %} 
+    
+    - name: "inverter_battery_voltage"
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "V"
+      device_class: voltage
+      state_class: measurement
+      value_template: "{{ value_json.battery_voltage / 100}}"
+    
+    - name: "inverter_battery_current"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "A"
+      device_class: current
+      state_class: measurement
+      value_template: "{{ value_json.battery_current /100}}"
+    
+    - name: "inverter_battery_SOC"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "%"
+      device_class: battery
+      state_class: measurement
+      value_template: "{{ value_json.batterySOC }}"
+    
+    - name: "inverter_battery_temp"
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      value_template: "{{ value_json.battery_temp }}"
+    
+    - name: "inverter_battery_cycles"
+      state_topic: "Sofar2mqtt/state"
+      state_class: total_increasing
+      value_template: "{{ value_json.battery_cycles }}"
+    
+    - name: "house_consumption_power"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      value_template: "{{ value_json.consumption *10 }}"
+    
+    - name: "solar_power"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      value_template: "{{ value_json.solarPV *10 }}"
+    
+    - name: "solar_current"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "A"
+      device_class: current
+      state_class: measurement
+      value_template: "{{ value_json.solarPVAmps }}"
+    
+    - name: "energy_today_exported"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "kWh"
+      device_class: energy
+      state_class: total_increasing
+      value_template: "{{ value_json.today_exported /100 }}"
+    
+    - name: "energy_today_purchase"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "kWh"
+      device_class: energy
+      state_class: total_increasing
+      value_template: "{{ value_json.today_purchase /100 }}"
+    
+    - name: "energy_today_consumption"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "kWh"
+      device_class: energy
+      state_class: total_increasing
+      value_template: "{{ value_json.today_consumption /100 }}"
+    
+    - name: "energy_today_generation"  
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "kWh"
+      device_class: energy
+      state_class: total_increasing
+      value_template: "{{ value_json.today_generation /100 }}"
+    
+    - name: "inverter_heatsink_temp"
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      value_template: "{{ value_json.inverter_HStemp }}"
+    
+    - name: "inverter_inner_temp"
+      state_topic: "Sofar2mqtt/state"
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      value_template: "{{ value_json.inverter_temp }}"

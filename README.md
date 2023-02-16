@@ -24,7 +24,8 @@ running_state
 grid_voltage  
 grid_current  
 grid_freq  
-battery_power  
+systemIO_power (AC side of inverter)  
+battery_power  (DC side of inverter)  
 battery_voltage  
 battery_current  
 batterySOC  
@@ -50,7 +51,8 @@ Sofar2mqtt/set/discharge   - send values in the range 0-3000 (watts)
 
 battery_save is a hybrid auto mode that will charge from excess solar but not discharge.
 
-(c)Colin McGerty 2021 colin@mcgerty.co.uk  
+(c)Colin McGerty 2021 colin@mcgerty.co.uk
+Major version 2.0 rewrite by Adam Hill sidepipeukatgmaildotcom
 Thanks to Rich Platts for hybrid model code and testing.  
 calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
 
@@ -109,7 +111,7 @@ Add a few more libraries using the Manage Libraries menu:
 
 ...and upload.
 
-Run it on the desktop, not connected to you invertor, to test that wifi and mqtt are connected and see some messages in the serial monitor.
+Run it on the desktop, not connected to your invertor, to test that wifi and mqtt are connected and see some messages in the serial monitor.
 The OLED screen should show "Online" to indicate a connection to WiFi and MQTT. It will alternate between "RS485 Error" and "CRC-FAULT" to indicate that the inverter is not connected.
 
 # Connect to Inverter

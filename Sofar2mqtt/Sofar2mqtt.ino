@@ -35,25 +35,26 @@ char MQTT_PASS[32] = "";
 
   Which provides:
 
-  running_state
-  grid_voltage
-  grid_current
+  running_state  
+  grid_voltage  
+  grid_current  
   grid_freq
-  battery_power
-  battery_voltage
+  systemIO_power (AC side of inverter) 
+  battery_power  (DC side of inverter)
+  battery_voltage  
   battery_current
-  batterySOC
-  battery_temp
-  battery_cycles
-  grid_power
-  consumption
-  solarPV
-  today_generation
-  today_exported
-  today_purchase
-  today_consumption
-  inverter_temp
-  inverterHS_temp
+  batterySOC  
+  battery_temp  
+  battery_cycles  
+  grid_power  
+  consumption  
+  solarPV  
+  today_generation  
+  today_exported  
+  today_purchase  
+  today_consumption  
+  inverter_temp  
+  inverterHS_temp  
   solarPVAmps
 
   With the inverter in Passive Mode, send MQTT messages to:
@@ -105,7 +106,7 @@ char MQTT_PASS[32] = "";
 #endif
 
 #define RS485_TRIES 8       // x 50mS to wait for RS485 input chars.
-// Wifi parameters. Fill in your wifi network name and password.
+// Wifi parameters.
 #include <ESP8266WiFi.h>
 WiFiClient wifi;
 
@@ -174,6 +175,7 @@ bool BATTERYSAVE = false;
 #define SOFAR_REG_BATTTEMP	0x0211
 #define SOFAR_REG_GRIDW		0x0212
 #define SOFAR_REG_LOADW		0x0213
+#define SOFAR_REG_SYSIOW	0x0214
 #define SOFAR_REG_PVW		0x0215
 #define SOFAR_REG_PVDAY		0x0218
 #define SOFAR_REG_EXPDAY	0x0219
@@ -207,6 +209,7 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { SOFAR_REG_BATTW, "battery_power" },
   { SOFAR_REG_BATTV, "battery_voltage" },
   { SOFAR_REG_BATTA, "battery_current" },
+  { SOFAR_REG_SYSIOW, "systemIO_power" },
   { SOFAR_REG_BATTSOC, "batterySOC" },
   { SOFAR_REG_BATTTEMP, "battery_temp" },
   { SOFAR_REG_BATTCYC, "battery_cycles" },
@@ -457,7 +460,7 @@ void mqttCallback(String topic, byte *message, unsigned int length)
 
   //tft.println();
   int   messageValue = messageTemp.toInt();
-  bool  messageBool = (messageTemp != "false");
+  bool  messageBool = ((messageTemp != "false") && (messageTemp != "battery_save"));
 
   if (cmd == "standby")
   {
@@ -514,7 +517,7 @@ void batterySave()
       // Switch to auto when any power flows to the grid.
       // We leave a little wriggle room because once you start charging the battery,
       // gridPower should be floating just above or below zero.
-      if (p < 65535 / 2 || p > 65525)
+      if((p < 65535/2 || p > 65525) && (INVERTER_RUNNINGSTATE != discharging))
       {
         //exporting to the grid
         //if(!sendPassiveCmd(SOFAR_SLAVE_ID, SOFAR_FN_AUTO, 0, "bsave_auto"))
