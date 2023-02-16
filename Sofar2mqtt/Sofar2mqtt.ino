@@ -35,26 +35,26 @@ char MQTT_PASS[32] = "";
 
   Which provides:
 
-  running_state  
-  grid_voltage  
-  grid_current  
+  running_state
+  grid_voltage
+  grid_current
   grid_freq
-  systemIO_power (AC side of inverter) 
+  systemIO_power (AC side of inverter)
   battery_power  (DC side of inverter)
-  battery_voltage  
+  battery_voltage
   battery_current
-  batterySOC  
-  battery_temp  
-  battery_cycles  
-  grid_power  
-  consumption  
-  solarPV  
-  today_generation  
-  today_exported  
-  today_purchase  
-  today_consumption  
-  inverter_temp  
-  inverterHS_temp  
+  batterySOC
+  battery_temp
+  battery_cycles
+  grid_power
+  consumption
+  solarPV
+  today_generation
+  today_exported
+  today_purchase
+  today_consumption
+  inverter_temp
+  inverterHS_temp
   solarPVAmps
 
   With the inverter in Passive Mode, send MQTT messages to:
@@ -517,7 +517,7 @@ void batterySave()
       // Switch to auto when any power flows to the grid.
       // We leave a little wriggle room because once you start charging the battery,
       // gridPower should be floating just above or below zero.
-      if((p < 65535/2 || p > 65525) && (INVERTER_RUNNINGSTATE != discharging))
+      if ((p < 65535 / 2 || p > 65525) && (INVERTER_RUNNINGSTATE != discharging))
       {
         //exporting to the grid
         //if(!sendPassiveCmd(SOFAR_SLAVE_ID, SOFAR_FN_AUTO, 0, "bsave_auto"))
