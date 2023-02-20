@@ -21,6 +21,10 @@ char MQTT_HOST[64] = "";
 char MQTT_PORT[6]  = "1883";
 char MQTT_USER[32] = "";
 char MQTT_PASS[32] = "";
+#define MQTTRECONNECTTIMER 30000 //it takes 30 secs for each mqtt server reconnect attempt
+unsigned long lastMqttReconnectAttempt = 0;
+
+
 
 /*****
   Sofar2mqtt is a remote control interface for Sofar solar and battery inverters.
@@ -109,6 +113,13 @@ char MQTT_PASS[32] = "";
 // Wifi parameters.
 #include <ESP8266WiFi.h>
 WiFiClient wifi;
+
+#include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266HTTPUpdateServer.h>
+ESP8266WebServer httpServer(80);
+ESP8266HTTPUpdateServer httpUpdater;
+
 
 // MQTT parameters
 #include <PubSubClient.h>
@@ -317,10 +328,9 @@ void configModeCallback(WiFiManager *myWiFiManager)
 {
   tft.println(F("Entering config mode"));
   tft.println(F("Connect your phone to WiFi: "));
-  tft.println(WiFi.softAPIP());
-
-  // * If you used auto generated SSID, print it
   tft.println(myWiFiManager->getConfigPortalSSID());
+  tft.println(F("And browse to: "));
+  tft.println(WiFi.softAPIP());
 
 }
 
@@ -333,6 +343,16 @@ void save_wifi_config_callback ()
   shouldSaveConfig = true;
 }
 
+void saveToEeprom() {
+  write_eeprom(0, 1, "1");           // * 0 --> always "1"
+  write_eeprom(1, 64, deviceName);   // * 1-64
+  write_eeprom(65, 64, MQTT_HOST);   // * 65-128
+  write_eeprom(129, 6, MQTT_PORT);   // * 129-134
+  write_eeprom(135, 32, MQTT_USER);  // * 135-166
+  write_eeprom(167, 32, MQTT_PASS);  // * 167-198
+
+  EEPROM.commit();
+}
 
 void setup_wifi()
 {
@@ -348,6 +368,7 @@ void setup_wifi()
     read_eeprom(129, 6).toCharArray(MQTT_PORT, 6);    // * 129-134
     read_eeprom(135, 32).toCharArray(MQTT_USER, 32);  // * 135-166
     read_eeprom(167, 32).toCharArray(MQTT_PASS, 32); // * 167 -198
+    WiFi.hostname(deviceName);
   }
   WiFiManagerParameter CUSTOM_MY_HOST("device", "My hostname", deviceName, 64);
   WiFiManagerParameter CUSTOM_MQTT_HOST("mqtt", "MQTT hostname", MQTT_HOST, 64);
@@ -385,20 +406,15 @@ void setup_wifi()
   if (shouldSaveConfig)
   {
     tft.println(F("Saving WiFiManager config"));
-
-    write_eeprom(0, 1, "1");        // * 0 --> always "1"
-    write_eeprom(1, 64, deviceName);   // * 1-64
-    write_eeprom(65, 64, MQTT_HOST);   // * 65-128
-    write_eeprom(129, 6, MQTT_PORT);   // * 129-134
-    write_eeprom(135, 32, MQTT_USER);  // * 135-166
-    write_eeprom(167, 32, MQTT_PASS); // * 167-198
-
-    EEPROM.commit();
+    saveToEeprom();
   }
   tft.println(F("Connected to WIFI..."));
   tft.println(WiFi.localIP());
+  delay(500);
 
 }
+
+
 
 int addStateInfo(String &state, uint16_t reg, String human)
 {
@@ -535,9 +551,9 @@ void batterySave()
 // This function reconnects the ESP8266 to the MQTT broker
 void mqttReconnect()
 {
-  // Loop until we're reconnected
-  while (true)
-  {
+  unsigned long now = millis();
+  if ((lastMqttReconnectAttempt == 0) || ((unsigned long)(now - lastMqttReconnectAttempt) > MQTTRECONNECTTIMER)) { //only try reconnect each MQTTRECONNECTTIMER seconds or on boot when lastMqttReconnectAttempt is still 0
+    lastMqttReconnectAttempt = now;
     tft.fillCircle(220, 290, 10, ILI9341_RED);
     mqtt.disconnect();		// Just in case.
     // Attempt to connect
@@ -555,18 +571,11 @@ void mqttReconnect()
       dischargeMode += "/set/discharge";
 
       // Subscribe or resubscribe to topics.
-      if (
-        mqtt.subscribe(const_cast<char*>(standbyMode.c_str())) &&
-        mqtt.subscribe(const_cast<char*>(autoMode.c_str())) &&
-        mqtt.subscribe(const_cast<char*>(chargeMode.c_str())) &&
-        mqtt.subscribe(const_cast<char*>(dischargeMode.c_str())))
-      {
-        break;
-      }
+      mqtt.subscribe(const_cast<char*>(standbyMode.c_str()));
+      mqtt.subscribe(const_cast<char*>(autoMode.c_str()));
+      mqtt.subscribe(const_cast<char*>(chargeMode.c_str()));
+      mqtt.subscribe(const_cast<char*>(dischargeMode.c_str()));
     }
-
-    // Wait 5 seconds before retrying
-    delay(5000);
   }
 }
 
@@ -935,37 +944,86 @@ void setupOTA() {
   ArduinoOTA.begin();
 }
 
+void handleCommand() {
+  int num = httpServer.args();
+  bool saveEeprom = false;
+  String message = "";
+  for (int i = 0 ; i < num ; i++) {
+    if ((httpServer.argName(i) == "reset") || (httpServer.argName(i) == "restart") || (httpServer.argName(i) == "reboot") || ((httpServer.argName(i) == "reload"))) {
+      httpServer.send(200, "text/plain", "Restarting!\r\n");
+      delay(1000);
+      ESP.reset();
+    } else if (httpServer.argName(i) == "factoryreset") {
+      httpServer.send(200, "text/plain", "Factory reset! Please restart manually.\r\n");
+      delay(1000);
+      resetConfig();
+    } else if (httpServer.argName(i) == "devicename") {
+      String value =  httpServer.arg(i);
+      message += "Setting devicename to: " + value + "\r\n";
+      value.toCharArray(deviceName, sizeof(deviceName));
+      saveEeprom = true;
+    } else if (httpServer.argName(i) == "mqtthost") {
+      String value =  httpServer.arg(i);
+      message += "Setting MQTT host to: " + value + "\r\n";
+      value.toCharArray(MQTT_HOST, sizeof(MQTT_HOST));
+      saveEeprom = true;
+    } else if (httpServer.argName(i) == "mqttport") {
+      String value =  httpServer.arg(i);
+      message += "Setting MQTT port to: " + value + "\r\n";
+      value.toCharArray(MQTT_PORT, sizeof(MQTT_PORT));
+      saveEeprom = true;
+    } else if (httpServer.argName(i) == "mqttuser") {
+      String value =  httpServer.arg(i);
+      message += "Setting MQTT username to: " + value + "\r\n";
+      value.toCharArray(MQTT_USER, sizeof(MQTT_USER));
+      saveEeprom = true;
+    } else if (httpServer.argName(i) == "mqttpass") {
+      String value =  httpServer.arg(i);
+      message += "Setting MQTT password to: " + value + "\r\n";
+      value.toCharArray(MQTT_PASS, sizeof(MQTT_PASS));
+      saveEeprom = true;
+    }
+  }
+  httpServer.send(200, "text/plain", message);
+  if (saveEeprom) saveToEeprom();
+}
+
+
+void resetConfig() {
+  //initiate debug led indication for factory reset
+  pinMode(2, FUNCTION_0); //set it as gpio
+  pinMode(2, OUTPUT);
+  digitalWrite(2, LOW); //blue led on
+  analogWrite(TFT_LED, 32); //PWM on led pin to dim screen
+  tft.fillScreen(ILI9341_RED);
+  tft.fillScreen(ILI9341_BLACK);
+  tft.setScrollMargins(1, 10);
+  tft.setTextColor(ILI9341_RED, ILI9341_BLACK); // Red on black
+  tft.println("Double reset detected, clearing config.");
+  WiFi.persistent(true);
+  WiFi.disconnect();
+  WiFi.persistent(false);
+  WiFiManager wifiManager;
+  wifiManager.resetSettings();
+  EEPROM.begin(512);
+  write_eeprom(0, 1, "0");
+  EEPROM.commit();
+
+  tft.println("Config cleared. Please reset to configure this device...");
+
+  while (true) {
+    digitalWrite(2, HIGH);
+    delay(100);
+    digitalWrite(2, LOW);
+    delay(100);
+  }
+}
+
 void doubleResetDetect() {
   if (drd.detect()) {
-    //initiate debug led indication for factory reset
-    pinMode(2, FUNCTION_0); //set it as gpio
-    pinMode(2, OUTPUT);
-    digitalWrite(2, LOW); //blue led on
     tft.begin();
-    analogWrite(TFT_LED, 32); //PWM on led pin to dim screen
-    tft.fillScreen(ILI9341_RED);
-    tft.fillScreen(ILI9341_BLACK);
-    tft.setScrollMargins(1, 10);
-    tft.setTextColor(ILI9341_RED, ILI9341_BLACK); // Red on black
-    tft.println("Double reset detected, clearing config.");
-    WiFi.persistent(true);
-    WiFi.disconnect();
-    WiFi.persistent(false);
-    WiFiManager wifiManager;
-    wifiManager.resetSettings();
-    EEPROM.begin(512);
-    write_eeprom(0, 1, "0");
-    EEPROM.commit();
-
-    tft.println("Config cleared. Please reset to configure this device...");
-
-    while (true) {
-      digitalWrite(2, HIGH);
-      delay(100);
-      digitalWrite(2, LOW);
-      delay(100);
-    }
-
+    tft.setRotation(2);
+    resetConfig();
   }
 }
 
@@ -974,6 +1032,7 @@ void setup()
   doubleResetDetect(); //detect factory reset first
 
   tft.begin();
+  tft.setRotation(2);
   analogWrite(TFT_LED, 32); //PWM on led pin to dim screen
   tft.fillScreen(ILI9341_CYAN);
   tft.fillScreen(ILI9341_BLACK);
@@ -990,6 +1049,11 @@ void setup()
   mqtt.setCallback(mqttCallback);
 
   setupOTA();
+  MDNS.begin(deviceName);
+  httpUpdater.setup(&httpServer);
+  httpServer.begin();
+  MDNS.addService("http", "tcp", 80);
+  httpServer.on("/command", handleCommand);
 
   //Wake up the inverter and put it in auto mode to begin with.
   tft.fillScreen(ILI9341_BLACK);
@@ -1003,11 +1067,8 @@ void setup()
 void loop()
 {
   ArduinoOTA.handle();
-  //make sure mqtt is still connected
-  if ((!mqtt.connected()) || !mqtt.loop())
-  {
-    mqttReconnect();
-  }
+  httpServer.handleClient();
+  MDNS.update();
 
   //Send a heartbeat to keep the inverter awake
   heartbeat();
@@ -1015,13 +1076,17 @@ void loop()
   //Check and display the runstate
   updateRunstate();
 
-  //Transmit all data to MQTT
-  sendData();
+  //make sure mqtt is still connected
+  if ((!mqtt.connected()) || !mqtt.loop())
+  {
+    mqttReconnect();
+  } else {
+    //Transmit all data to MQTT
+    sendData();
+  }
 
   //Set battery save state
   batterySave();
-
-  delay(100);
 }
 
 //calcCRC and checkCRC are based on...
