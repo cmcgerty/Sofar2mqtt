@@ -669,6 +669,7 @@ const char index_html[] PROGMEM = R"=====(
   </header>
   <div class="container">
     <p><span class="label">Uptime:</span><span class="value" id="uptime"></span></p>
+    <p><span class="label">Device:</span><span class="value" id="deviceName"></span></p>
     <p><span class="label">Current battery SOC:</span><span class="value" id="batterySOC"></span></p>
     <p><span class="label">Current grid power:</span><span class="value" id="grid_power"></span></p>
     <p><span class="label">Current battery power:</span><span class="value" id="battery_power"></span></p>
@@ -676,6 +677,7 @@ const char index_html[] PROGMEM = R"=====(
     <p><span class="label">Current inverter temperature:</span><span class="value" id="inverter_temp"></span></p>
     <button id="reboot-btn">Reboot Device</button>
     <button id="factory-btn">Factory reset</button>
+    <button id="firmware-btn">Firmware update</button>
   </div>
   <script>
     function getData() {
@@ -693,6 +695,7 @@ const char index_html[] PROGMEM = R"=====(
           batterypower = batterypower * 10;
         }
         $("#uptime").text(data.uptime);
+        $("#deviceName").text(data.deviceName);
         $("#batterySOC").text(data.batterySOC);
         $("#grid_power").text(gridpower);
         $("#battery_power").text(batterypower);
@@ -717,6 +720,10 @@ const char index_html[] PROGMEM = R"=====(
 
     $("#reboot-btn").click(rebootDevice);
     $("#factory-btn").click(factoryReset);
+    $("#firmware-btn").click(function(e){
+         e.preventDefault();
+         window.location = "/update";    
+});
   </script>
 </body>
 </html>

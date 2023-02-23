@@ -467,8 +467,9 @@ void sendData()
   // Update all parameters and send to MQTT.
   if (checkTimer(&lastRun, SEND_INTERVAL))
   {
-    String	state = "{\"uptime\":" + String(millis());
-
+    String	state = "{\"uptime\":" + String(millis()) + ",\"deviceName\": \"" + String(deviceName) + "\"";
+    //String  state = "{\"uptime\":" + String(millis());
+    
     for (int l = 0; l < sizeof(mqtt_status_reads) / sizeof(struct mqtt_status_register); l++)
       if (mqtt_status_reads[l].inverter == inverterModel) {
         addStateInfo(state, mqtt_status_reads[l].regnum, mqtt_status_reads[l].mqtt_name);
@@ -761,7 +762,7 @@ void sendMqtt(char* topic, String msg_str)
 {
   char	msg[1000];
 
-  mqtt.setBufferSize(512);
+  mqtt.setBufferSize(1024);
   msg_str.toCharArray(msg, msg_str.length() + 1); //packaging up the data to publish to mqtt
   if (!(mqtt.publish(topic, msg)))
     printScreen("MQTT publish failed");
