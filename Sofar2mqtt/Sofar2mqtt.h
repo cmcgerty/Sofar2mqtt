@@ -601,3 +601,123 @@ const unsigned char background [] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
+
+
+const char index_html[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html>
+<head>
+  <title>JSON Data Display</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #F8F8F8;
+    }
+
+    header {
+      background-color: #333;
+      color: #FFF;
+      padding: 10px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2em;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #FFF;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      border-radius: 5px;
+      margin-top: 50px;
+    }
+
+    .label {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+
+    .value {
+      font-weight: normal;
+    }
+
+    button {
+      background-color: #333;
+      color: #FFF;
+      padding: 10px 20px;
+      border-radius: 5px;
+      border: none;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #555;
+    }    
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sofar2MQTT</h1>
+  </header>
+  <div class="container">
+    <p><span class="label">Uptime:</span><span class="value" id="uptime"></span></p>
+    <p><span class="label">Current battery SOC:</span><span class="value" id="batterySOC"></span></p>
+    <p><span class="label">Current grid power:</span><span class="value" id="grid_power"></span></p>
+    <p><span class="label">Current battery power:</span><span class="value" id="battery_power"></span></p>
+    <p><span class="label">Current battery temperature:</span><span class="value" id="battery_temp"></span></p>
+    <p><span class="label">Current inverter temperature:</span><span class="value" id="inverter_temp"></span></p>
+    <button id="reboot-btn">Reboot Device</button>
+    <button id="factory-btn">Factory reset</button>
+  </div>
+  <script>
+    function getData() {
+      $.getJSON("/json", function(data) {
+        let gridpower = data.grid_power;
+        let batterypower = data.battery_power;
+        if (gridpower > 32768) {
+          gridpower = *65535 - gridpower) * -10;
+        } else {
+          gridpower = gridpower * 10;
+        }
+        if (batterypower > 32768) {
+          batterypower = (65535 - batterypower) * -10;
+        } else {
+          batterypower = batterypower * 10;
+        }
+        $("#uptime").text(data.uptime);
+        $("#batterySOC").text(data.batterySOC);
+        $("#grid_power").text(gridpower);
+        $("#battery_power").text(batterypower);
+        $("#battery_temp").text(data.battery_temp);
+        $("#inverter_temp").text(data.inverter_temp);
+      });
+    }
+
+    function rebootDevice() {
+      $.get("/command?reboot");
+      alert("Device is rebooting...");
+    }
+    
+    function factoryReset() {
+      $.get("/command?factoryreset");
+      alert("Factory reset in progress. Reconnect to hotspot to reconfigure.");
+    }
+    
+    getData();
+
+    setInterval(getData, 10000); // call getData every 10 seconds
+
+    $("#reboot-btn").click(rebootDevice);
+    $("#factory-btn").click(factoryReset);
+  </script>
+</body>
+</html>
+)=====";

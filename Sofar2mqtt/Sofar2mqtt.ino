@@ -111,6 +111,8 @@ WiFiClient wifi;
 ESP8266WebServer httpServer(80);
 ESP8266HTTPUpdateServer httpUpdater;
 
+char jsonstring[1000];
+
 
 // MQTT parameters
 #include <PubSubClient.h>
@@ -155,6 +157,8 @@ bool BATTERYSAVE = false;
 #define SOFAR_REG_EXPDAY	0x0219
 #define SOFAR_REG_IMPDAY	0x021a
 #define SOFAR_REG_LOADDAY	0x021b
+#define SOFAR_REG_CHARGDAY  0x0224
+#define SOFAR_REG_DISCHDAY  0x0225
 #define SOFAR_REG_BATTCYC	0x022c
 #define SOFAR_REG_PVA		0x0236
 #define SOFAR_REG_INTTEMP	0x0238
@@ -191,10 +195,12 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { ME3000, SOFAR_REG_LOADW, "consumption" },
   { ME3000, SOFAR_REG_PVW, "solarPV" },
   { ME3000, SOFAR_REG_PVA, "solarPVAmps" },
+  { ME3000, SOFAR_REG_EXPDAY, "today_exported" },
+  { ME3000, SOFAR_REG_IMPDAY, "today_purchase" },
   { ME3000, SOFAR_REG_PVDAY, "today_generation" },
-  { ME3000, SOFAR_REG_PV1, "Solarpv1" },
-  { ME3000, SOFAR_REG_PV2, "Solarpv2" },
   { ME3000, SOFAR_REG_LOADDAY, "today_consumption" },
+  { ME3000, SOFAR_REG_CHARGDAY, "today_charged" },
+  { ME3000, SOFAR_REG_DISCHDAY, "today_discharged" },
   { ME3000, SOFAR_REG_INTTEMP, "inverter_temp" },
   { ME3000, SOFAR_REG_HSTEMP, "inverter_HStemp" },
   { HYBRID, SOFAR_REG_RUNSTATE, "running_state" },
@@ -212,9 +218,9 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYBRID, SOFAR_REG_LOADW, "consumption" },
   { HYBRID, SOFAR_REG_PVW, "solarPV" },
   { HYBRID, SOFAR_REG_PVA, "solarPVAmps" },
+  { HYBRID, SOFAR_REG_PV1, "Solarpv1" },
+  { HYBRID, SOFAR_REG_PV2, "Solarpv2" },
   { HYBRID, SOFAR_REG_PVDAY, "today_generation" },
-  { HYBRID, SOFAR_REG_EXPDAY, "today_exported" },
-  { HYBRID, SOFAR_REG_IMPDAY, "today_purchase" },
   { HYBRID, SOFAR_REG_LOADDAY, "today_consumption" },
   { HYBRID, SOFAR_REG_INTTEMP, "inverter_temp" },
   { HYBRID, SOFAR_REG_HSTEMP, "inverter_HStemp" },
@@ -242,7 +248,7 @@ bool modbusError = true;
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_ILI9341.h>   // include Adafruit ILI9341 TFT library
-#include "logo.h"
+#include "Sofar2mqtt.h"
 
 #define TFT_CS    D1     // TFT CS  pin is connected to arduino pin 8
 #define TFT_DC    D2     // TFT DC  pin is connected to arduino pin 10
@@ -388,7 +394,7 @@ void setup_wifi()
   )";
   WiFiManagerParameter custom_html_inputs(bufferStr);
   char inverterModelString[6];
-  sprintf(inverterModelString,"%u",uint8_t(inverterModel));
+  sprintf(inverterModelString, "%u", uint8_t(inverterModel));
   WiFiManagerParameter custom_hidden("key_custom", "Will be hidden", inverterModelString, 2);
 
 
@@ -421,7 +427,7 @@ void setup_wifi()
   strcpy(MQTT_PORT, CUSTOM_MQTT_PORT.getValue());
   strcpy(MQTT_USER, CUSTOM_MQTT_USER.getValue());
   strcpy(MQTT_PASS, CUSTOM_MQTT_PASS.getValue());
-  if (atoi(custom_hidden.getValue())) inverterModel=HYBRID;
+  if (atoi(custom_hidden.getValue())) inverterModel = HYBRID;
 
   // * Save the custom parameters to FS
   if (shouldSaveConfig)
@@ -466,6 +472,7 @@ void sendData()
     for (int l = 0; l < sizeof(mqtt_status_reads) / sizeof(struct mqtt_status_register); l++)
       if (mqtt_status_reads[l].inverter == inverterModel) {
         addStateInfo(state, mqtt_status_reads[l].regnum, mqtt_status_reads[l].mqtt_name);
+        loopRuns(); //handle some other requests while building the state info
       }
     state = state + "}";
 
@@ -473,6 +480,7 @@ void sendData()
     String topic(deviceName);
     topic += "/state";
     sendMqtt(const_cast<char*>(topic.c_str()), state);
+    state.toCharArray(jsonstring, sizeof(jsonstring));
   }
 }
 
@@ -824,7 +832,7 @@ void updateRunstate()
             break;
 
           case 4:
-            printScreen("Discharging", String(batteryWatts()) + "W");
+            printScreen("Discharging", String(-1 * batteryWatts()) + "W");
             tft.fillCircle(120, 290, 10, ILI9341_GREEN);
             break;
 
@@ -864,13 +872,19 @@ void updateRunstate()
             break;
 
           case 2:
-            printScreen("Charging", String(batteryWatts()) + "W");
-            tft.fillCircle(120, 290, 10, ILI9341_BLUE);
-            break;
-
-          case 6:
-            printScreen("Discharging", String(batteryWatts()) + "W");
-            tft.fillCircle(120, 290, 10, ILI9341_GREEN);
+            {
+              int w = batteryWatts();
+              if (w == 0) {
+                printScreen("Normal");
+                tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+              } else if (w > 0) {
+                printScreen("Charging", String(w) + "W");
+                 tft.fillCircle(120, 290, 10, ILI9341_BLUE);
+              } else {
+                printScreen("Discharging", String(w * -1) + "W");
+                 tft.fillCircle(120, 290, 10, ILI9341_GREEN);
+              }
+            }
             break;
 
           case 3:
@@ -899,9 +913,9 @@ void updateRunstate()
   }
 }
 
-unsigned int batteryWatts()
+int batteryWatts()
 {
-  if ( ((inverterModel == ME3000) && (INVERTER_RUNNINGSTATE == 2 || INVERTER_RUNNINGSTATE == 4)) || ((inverterModel == HYBRID) && (INVERTER_RUNNINGSTATE == 2 || INVERTER_RUNNINGSTATE == 6)) )
+  if ( ((inverterModel == ME3000) && (INVERTER_RUNNINGSTATE == 2 || INVERTER_RUNNINGSTATE == 4)) || ((inverterModel == HYBRID) && (INVERTER_RUNNINGSTATE == 2)) )
   {
     modbusResponse  response;
 
@@ -909,16 +923,12 @@ unsigned int batteryWatts()
     {
       unsigned int w = ((response.data[0] << 8) | response.data[1]);
 
-      switch (INVERTER_RUNNINGSTATE)
-      {
-        case 2:
-          w = w * 10;
-          break;
-
-        case 4:
-          w = (65535 - w) * 10;
+      if (w < 32768) {
+        w = w * 10;
       }
-
+      else {
+        w = (65535 - w) * -10;
+      }
       return w;
     }
   }
@@ -1007,6 +1017,16 @@ void setupOTA() {
     }
   });
   ArduinoOTA.begin();
+}
+
+// Webserver root page
+void handleRoot() {
+  httpServer.send_P(200, "text/html", index_html);
+}
+
+void handleJson()
+{
+  httpServer.send(200, "application/json", jsonstring);
 }
 
 void handleCommand() {
@@ -1126,6 +1146,8 @@ void setup()
   httpUpdater.setup(&httpServer);
   httpServer.begin();
   MDNS.addService("http", "tcp", 80);
+  httpServer.on("/", handleRoot);
+  httpServer.on("/json", handleJson);
   httpServer.on("/command", handleCommand);
 
   //Wake up the inverter and put it in auto mode to begin with.
@@ -1137,11 +1159,15 @@ void setup()
   if (!modbusError) sendPassiveCmd(SOFAR_SLAVE_ID, SOFAR_FN_AUTO, 0, "startup_auto");
 }
 
-void loop()
-{
+void loopRuns() {
   ArduinoOTA.handle();
   httpServer.handleClient();
   MDNS.update();
+}
+
+void loop()
+{
+  loopRuns();
 
   //Send a heartbeat to keep the inverter awake and update modbusError boolean
   heartbeat();
