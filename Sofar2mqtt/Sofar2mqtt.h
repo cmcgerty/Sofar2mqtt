@@ -683,7 +683,7 @@ const char index_html[] PROGMEM = R"=====(
         let gridpower = data.grid_power;
         let batterypower = data.battery_power;
         if (gridpower > 32768) {
-          gridpower = *65535 - gridpower) * -10;
+          gridpower = (65535 - gridpower) * -10;
         } else {
           gridpower = gridpower * 10;
         }
