@@ -607,7 +607,7 @@ const char index_html[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html>
 <head>
-  <title>JSON Data Display</title>
+  <title>Sofar2MQTT</title>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
     body {
