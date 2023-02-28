@@ -2,7 +2,9 @@ enum inverterModelT {ME3000, HYBRID};
 inverterModelT inverterModel = ME3000; //default to ME3000
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.0";
+const char* version = "v3.1";
+
+bool tftModel = true; //true means 2.8" color tft, false for oled version
 
 #include <DoubleResetDetect.h>
 #define DRD_TIMEOUT 0.1
@@ -132,9 +134,12 @@ unsigned int INVERTER_RUNNINGSTATE;
 
 #define MAX_FRAME_SIZE          64
 #define MODBUS_FN_READSINGLEREG 0x03
+#define MODBUS_FN_WRITESINGLEREG 0x10
 #define SOFAR_FN_PASSIVEMODE    0x42
 #define SOFAR_PARAM_STANDBY     0x5555
 
+//newer models have passive control at normal holding regs, writing 6x 32-byte integers
+#define SOFAR_V2_REG_PASSIVEMODE  0x1187
 
 // Battery Save mode is a hybrid mode where the battery will charge from excess solar but not discharge.
 bool BATTERYSAVE = false;
@@ -247,14 +252,23 @@ bool modbusError = true;
 // Wemos OLED Shield set up. 64x48, pins D1 and D2
 #include <SPI.h>
 #include <Wire.h>
-#include <Adafruit_ILI9341.h>   // include Adafruit ILI9341 TFT library
+
 #include "Sofar2mqtt.h"
 
+//for the tft
+#include <Adafruit_ILI9341.h>   // include Adafruit ILI9341 TFT library
 #define TFT_CS    D1     // TFT CS  pin is connected to arduino pin 8
 #define TFT_DC    D2     // TFT DC  pin is connected to arduino pin 10
 #define TFT_LED   D8
 // initialize ILI9341 TFT library
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
+
+//for the oled
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define OLED_RESET 0  // GPIO0
+Adafruit_SSD1306 display(OLED_RESET);
+
 
 #include <ArduinoOTA.h>
 
@@ -280,6 +294,60 @@ bool checkTimer(unsigned long *lastRun, unsigned long interval)
   }
 
   return false;
+}
+
+// Update the OLED. Use "NULL" for no change or "" for an empty line.
+String oledLine1;
+String oledLine2;
+String oledLine3;
+String oledLine4;
+
+void updateOLED(String line1, String line2, String line3, String line4)
+{
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 0);
+
+  if (line1 != "NULL")
+  {
+    display.println(line1);
+    oledLine1 = line1;
+  }
+  else
+    display.println(oledLine1);
+
+  display.setCursor(0, 12);
+
+  if (line2 != "NULL")
+  {
+    display.println(line2);
+    oledLine2 = line2;
+  }
+  else
+    display.println(oledLine2);
+
+  display.setCursor(0, 24);
+
+  if (line3 != "NULL")
+  {
+    display.println(line3);
+    oledLine3 = line3;
+  }
+  else
+    display.println(oledLine3);
+
+  display.setCursor(0, 36);
+
+  if (line4 != "NULL")
+  {
+    display.println(line4);
+    oledLine4 = line4;
+  }
+  else
+    display.println(oledLine4);
+
+  display.display();
 }
 
 // **********************************
@@ -314,11 +382,15 @@ void write_eeprom(int offset, int len, String value)
 // * Gets called when WiFiManager enters configuration mode
 void configModeCallback(WiFiManager *myWiFiManager)
 {
-  tft.println(F("Entering config mode"));
-  tft.println(F("Connect your phone to WiFi: "));
-  tft.println(myWiFiManager->getConfigPortalSSID());
-  tft.println(F("And browse to: "));
-  tft.println(WiFi.softAPIP());
+  if (tftModel) {
+    tft.println(F("Entering config mode"));
+    tft.println(F("Connect your phone to WiFi: "));
+    tft.println(myWiFiManager->getConfigPortalSSID());
+    tft.println(F("And browse to: "));
+    tft.println(WiFi.softAPIP());
+  } else {
+    updateOLED("NULL", "hotspot", "no config", "NULL");
+  }
 
 }
 
@@ -339,13 +411,12 @@ void saveToEeprom() {
   write_eeprom(135, 32, MQTT_USER);  // * 135-166
   write_eeprom(167, 32, MQTT_PASS);  // * 167-198
   EEPROM.write(199, inverterModel); // * 199
+  EEPROM.write(200, tftModel); // * 200
   EEPROM.commit();
+  ESP.reset(); // reset after save to activate new settings
 }
 
-void setup_wifi()
-{
-  // * Configure EEPROM
-  EEPROM.begin(512);
+bool loadFromEeprom() {
   // * Get MQTT Server settings
   String settings_available = read_eeprom(0, 1);
 
@@ -357,8 +428,17 @@ void setup_wifi()
     read_eeprom(135, 32).toCharArray(MQTT_USER, 32);  // * 135-166
     read_eeprom(167, 32).toCharArray(MQTT_PASS, 32); // * 167 -198
     if (EEPROM.read(199)) inverterModel = HYBRID;
+    tftModel = false;
+    if (EEPROM.read(200)) tftModel = true;
     WiFi.hostname(deviceName);
+    return true;
   }
+  return false;
+}
+
+void setup_wifi()
+{
+
   WiFiManagerParameter CUSTOM_MY_HOST("device", "My hostname", deviceName, 64);
   WiFiManagerParameter CUSTOM_MQTT_HOST("mqtt", "MQTT hostname", MQTT_HOST, 64);
   WiFiManagerParameter CUSTOM_MQTT_PORT("port", "MQTT port",     MQTT_PORT, 6);
@@ -367,42 +447,68 @@ void setup_wifi()
 
   const char *bufferStr = R"(
   <br/>
+  <p>Select LCD screen type:</p>
+  <input style='display: inline-block;' type='radio' id='TFT' name='lcd_selection' onclick='setHiddenValueLCD()'>
+  <label for='TFT'>TFT</label><br/>
+  <input style='display: inline-block;' type='radio' id='OLED' name='lcd_selection' onclick='setHiddenValueLCD()'>
+  <label for='OLED'>OLED</label><br/>
+  <br/>  
   <p>Select inverter type:</p>
-  <input style='display: inline-block;' type='radio' id='ME3000' name='inverter_selection' onclick='setHiddenValue()'>
+  <input style='display: inline-block;' type='radio' id='ME3000' name='inverter_selection' onclick='setHiddenValueInverter()'>
   <label for='ME3000'>ME3000SP</label><br/>
-  <input style='display: inline-block;' type='radio' id='HYBRID' name='inverter_selection' onclick='setHiddenValue()'>
+  <input style='display: inline-block;' type='radio' id='HYBRID' name='inverter_selection' onclick='setHiddenValueInverter()'>
   <label for='HYBRID'>HYDxxxxES</label><br/>
   <br/>
   <script>
-  function setHiddenValue() {
-    var checkBox = document.getElementById('ME3000');
-    var hiddenvalue = document.getElementById('key_custom');
+  function setHiddenValueLCD() {
+    var checkBox = document.getElementById('OLED');
+    var hiddenvalue = document.getElementById('key_custom_lcd');
     if (checkBox.checked == true){
       hiddenvalue.value=0
     } else {
       hiddenvalue.value=1
     }
   }
-  if (document.getElementById("key_custom").value === "1") {
+  function setHiddenValueInverter() {
+    var checkBox = document.getElementById('ME3000');
+    var hiddenvalue = document.getElementById('key_custom_inverter');
+    if (checkBox.checked == true){
+      hiddenvalue.value=0
+    } else {
+      hiddenvalue.value=1
+    }
+  }
+  if (document.getElementById("key_custom_lcd").value === "1") {
+    document.getElementById("TFT").checked = true  
+  } else {
+    document.getElementById("OLED").checked = true  
+  }
+  document.querySelector("[for='key_custom_lcd']").hidden = true;
+  document.getElementById('key_custom_lcd').hidden = true;
+  if (document.getElementById("key_custom_inverter").value === "1") {
     document.getElementById("HYBRID").checked = true  
   } else {
     document.getElementById("ME3000").checked = true  
   }
-  document.querySelector("[for='key_custom']").hidden = true;
-  document.getElementById('key_custom').hidden = true;
+  document.querySelector("[for='key_custom_inverter']").hidden = true;
+  document.getElementById('key_custom_inverter').hidden = true;
   </script>
   )";
   WiFiManagerParameter custom_html_inputs(bufferStr);
+  char lcdModelString[6];
+  sprintf(lcdModelString, "%u", uint8_t(tftModel));
+  WiFiManagerParameter custom_hidden_lcd("key_custom_lcd", "LCD type hidden", lcdModelString, 2);
   char inverterModelString[6];
   sprintf(inverterModelString, "%u", uint8_t(inverterModel));
-  WiFiManagerParameter custom_hidden("key_custom", "Will be hidden", inverterModelString, 2);
+  WiFiManagerParameter custom_hidden_inverter("key_custom_inverter", "Inverter type hidden", inverterModelString, 2);
 
 
   WiFiManager wifiManager;
   wifiManager.setAPCallback(configModeCallback);
   wifiManager.setConfigPortalTimeout(WIFI_TIMEOUT);
   wifiManager.setSaveConfigCallback(save_wifi_config_callback);
-  wifiManager.addParameter(&custom_hidden);
+  wifiManager.addParameter(&custom_hidden_lcd);
+  wifiManager.addParameter(&custom_hidden_inverter);
   wifiManager.addParameter(&custom_html_inputs);
   wifiManager.addParameter(&CUSTOM_MY_HOST);
   wifiManager.addParameter(&CUSTOM_MQTT_HOST);
@@ -414,8 +520,11 @@ void setup_wifi()
 
   if (!wifiManager.autoConnect("Sofar2Mqtt"))
   {
-    tft.println(F("Failed to connect to WIFI and hit timeout"));
-
+    if (tftModel) {
+      tft.println(F("Failed to connect to WIFI and hit timeout"));
+    } else {
+      updateOLED("NULL", "NULL", "WiFi.!.", "NULL");
+    }
     // * Reset and try again, or maybe put it to deep sleep
     ESP.reset();
     delay(WIFI_TIMEOUT);
@@ -427,16 +536,17 @@ void setup_wifi()
   strcpy(MQTT_PORT, CUSTOM_MQTT_PORT.getValue());
   strcpy(MQTT_USER, CUSTOM_MQTT_USER.getValue());
   strcpy(MQTT_PASS, CUSTOM_MQTT_PASS.getValue());
-  if (atoi(custom_hidden.getValue())) inverterModel = HYBRID;
+  if (atoi(custom_hidden_lcd.getValue()) == 0) tftModel = false;
+  if (atoi(custom_hidden_inverter.getValue())) inverterModel = HYBRID;
 
-  // * Save the custom parameters to FS
-  if (shouldSaveConfig)
-  {
-    tft.println(F("Saving WiFiManager config"));
-    saveToEeprom();
+  // * Save the custom parameters to FS which will also initiate a reset to activate other lcd screen if necessary
+  if (shouldSaveConfig) saveToEeprom();
+  if (tftModel) {
+    tft.println(F("Connected to WIFI..."));
+    tft.println(WiFi.localIP());
+  } else {
+    updateOLED("NULL", "NULL", "WiFi...", "NULL");
   }
-  tft.println(F("Connected to WIFI..."));
-  tft.println(WiFi.localIP());
   delay(500);
 
 }
@@ -469,7 +579,7 @@ void sendData()
   {
     String	state = "{\"uptime\":" + String(millis()) + ",\"deviceName\": \"" + String(deviceName) + "\"";
     //String  state = "{\"uptime\":" + String(millis());
-    
+
     for (int l = 0; l < sizeof(mqtt_status_reads) / sizeof(struct mqtt_status_register); l++)
       if (mqtt_status_reads[l].inverter == inverterModel) {
         addStateInfo(state, mqtt_status_reads[l].regnum, mqtt_status_reads[l].mqtt_name);
@@ -491,20 +601,15 @@ void mqttCallback(String topic, byte *message, unsigned int length)
   if (!topic.startsWith(String(deviceName) + "/set/"))
     return;
 
-  //tft.print("Message arrived on topic: ");
-  //tft.print(topic);
-  //tft.print(". Message: ");
   String messageTemp;
   uint16_t fnCode = 0, fnParam = 0;
   String cmd = topic.substring(topic.lastIndexOf("/") + 1);
 
   for (int i = 0; i < length; i++)
   {
-    //tft.print((char)message[i]);
     messageTemp += (char)message[i];
   }
 
-  //tft.println();
   int   messageValue = messageTemp.toInt();
   bool  messageBool = ((messageTemp != "false") && (messageTemp != "battery_save"));
 
@@ -551,14 +656,8 @@ void batterySave()
     //Get grid power
     unsigned int	p = 0;
 
-    if (!readSingleReg(SOFAR_SLAVE_ID, SOFAR_REG_GRIDW, &rs))
+    if (readSingleReg(SOFAR_SLAVE_ID, SOFAR_REG_GRIDW, &rs)) {
       p = ((rs.data[0] << 8) | rs.data[1]);
-    else
-      //tft.println("modbus error");
-
-      //tft.print("Grid power: ");
-      //tft.println(p);
-      //tft.print("Battery save mode: ");
 
       // Switch to auto when any power flows to the grid.
       // We leave a little wriggle room because once you start charging the battery,
@@ -574,6 +673,7 @@ void batterySave()
         //importing from the grid
         sendPassiveCmd(SOFAR_SLAVE_ID, SOFAR_FN_STANDBY, SOFAR_PARAM_STANDBY, "bsave_standby");
       }
+    }
   }
 }
 
@@ -583,12 +683,20 @@ void mqttReconnect()
   unsigned long now = millis();
   if ((lastMqttReconnectAttempt == 0) || ((unsigned long)(now - lastMqttReconnectAttempt) > MQTTRECONNECTTIMER)) { //only try reconnect each MQTTRECONNECTTIMER seconds or on boot when lastMqttReconnectAttempt is still 0
     lastMqttReconnectAttempt = now;
-    tft.fillCircle(220, 290, 10, ILI9341_RED);
+    if (tftModel) {
+      tft.fillCircle(220, 290, 10, ILI9341_RED);
+    } else {
+      updateOLED("NULL", "Offline", "NULL", "NULL");
+    }
     mqtt.disconnect();		// Just in case.
     // Attempt to connect
     if (mqtt.connect(deviceName, MQTT_USER, MQTT_PASS))
     {
-      tft.fillCircle(220, 290, 10, ILI9341_GREEN);
+      if (tftModel) {
+        tft.fillCircle(220, 290, 10, ILI9341_GREEN);
+      } else {
+        updateOLED("NULL", "Online", "NULL", "NULL");
+      }
       //Set topic names to include the deviceName.
       String standbyMode(deviceName);
       standbyMode += "/set/standby";
@@ -661,7 +769,6 @@ int listen(modbusResponse *resp)
 
     if (tries >= RS485_TRIES)
     {
-      //tft.println("Timeout waiting for RS485 response.");
       break;
     }
 
@@ -722,9 +829,6 @@ int listen(modbusResponse *resp)
     resp->errorMessage = "Error: invalid data frame";
   }
 
-  //if(resp->errorLevel)
-  //tft.println(resp->errorMessage);
-
   return -resp->errorLevel;
 }
 
@@ -733,6 +837,36 @@ int readSingleReg(uint8_t id, uint16_t reg, modbusResponse *rs)
   uint8_t	frame[] = { id, MODBUS_FN_READSINGLEREG, reg >> 8, reg & 0xff, 0, 0x01, 0, 0 };
 
   return sendModbus(frame, sizeof(frame), rs);
+}
+
+int sendPassiveCmdV2(uint8_t id, uint16_t cmd, uint16_t param, String pubTopic) {
+  /*SOFAR_V2_REG_PASSIVEMODE
+  *need to be finished and checked
+  *writes to 4487 - 4492 with 6x 32-bit integers
+  *4487 = desired PPC passive power
+  *4489 = min passive power
+  *4491 = max passive power
+  *but 4487 isn't for forced passive mode. Set min and max to same value for that. Negative is discharging
+  */
+  modbusResponse  rs;
+  uint8_t frame[] = { id, MODBUS_FN_WRITESINGLEREG, SOFAR_V2_REG_PASSIVEMODE >> 8, SOFAR_V2_REG_PASSIVEMODE & 0xff, 0, 6, 12, 0, 0, 0, 0, 0, 0, param >> 8, param & 0xff, 0, 0, param >> 8, param & 0xff, 0, 0 };
+  int   err = -1;
+  String    retMsg;
+
+  if (sendModbus(frame, sizeof(frame), &rs))
+    retMsg = rs.errorMessage;
+  else if (rs.dataSize != 2)
+    retMsg = "Reponse is " + String(rs.dataSize) + " bytes?";
+  else
+  {
+    retMsg = String((rs.data[0] << 8) | (rs.data[1] & 0xff));
+    err = 0;
+  }
+
+  String topic(deviceName);
+  topic += "/response/" + pubTopic;
+  sendMqtt(const_cast<char*>(topic.c_str()), retMsg);
+  return err;
 }
 
 int sendPassiveCmd(uint8_t id, uint16_t cmd, uint16_t param, String pubTopic)
@@ -779,15 +913,25 @@ void heartbeat()
     uint8_t	sendHeartbeat[] = {SOFAR_SLAVE_ID, 0x49, 0x22, 0x01, 0x22, 0x02, 0x00, 0x00};
     int	ret;
 
-    if (!(ret = sendModbus(sendHeartbeat, sizeof(sendHeartbeat), NULL)))
-    {
-      tft.fillCircle(20, 290, 10, ILI9341_GREEN);
-      modbusError = false;
+    if (!(ret = sendModbus(sendHeartbeat, sizeof(sendHeartbeat), NULL))) //ret=0 is good
+    { if (modbusError) { //fixed previous modbus error
+        modbusError = false;
+        if (tftModel) {
+          tft.fillCircle(20, 290, 10, ILI9341_GREEN);
+        } else {
+          updateOLED("NULL", "NULL", "RS485", "OK");
+        }
+      }
     }
     else
     {
-      tft.fillCircle(20, 290, 10, ILI9341_RED);
       modbusError = true;
+      if (tftModel) {
+        tft.fillCircle(20, 290, 10, ILI9341_RED);
+      } else {
+        updateOLED("NULL", "NULL", "RS485", "ERROR");
+      }
+
     }
 
   }
@@ -812,48 +956,47 @@ void updateRunstate()
           case 0:
             printScreen("Standby");
             if (BATTERYSAVE)
-              tft.fillCircle(120, 290, 10, ILI9341_LIGHTGREY);
-            else
-              tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+              if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_LIGHTGREY);
+              else if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
             break;
 
           case 1:
             printScreen("Check");
-            tft.fillCircle(120, 290, 10, ILI9341_YELLOW );
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_YELLOW );
             break;
 
           case 2:
             printScreen("Charging", String(batteryWatts()) + "W");
-            tft.fillCircle(120, 290, 10, ILI9341_BLUE);
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLUE);
             break;
 
           case 3:
             printScreen("Check dis");
-            tft.fillCircle(120, 290, 10, ILI9341_GREEN);
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_GREEN);
             break;
 
           case 4:
             printScreen("Discharging", String(-1 * batteryWatts()) + "W");
-            tft.fillCircle(120, 290, 10, ILI9341_GREEN);
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_GREEN);
             break;
 
           case 5:
-            tft.fillCircle(120, 290, 10, ILI9341_PURPLE);
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_PURPLE);
             break;
 
           case 6:
             printScreen("EPS state");
-            tft.fillCircle(120, 290, 10, ILI9341_RED);
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
             break;
 
           case 7:
             printScreen("FAULT");
-            tft.fillCircle(120, 290, 10, ILI9341_RED);
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
             break;
 
           default:
             printScreen("?");
-            tft.fillCircle(120, 290, 10, ILI9341_BLACK);
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLACK);
             break;
         }
       } else if (inverterModel == HYBRID) {
@@ -862,14 +1005,13 @@ void updateRunstate()
           case 0:
             printScreen("Standby");
             if (BATTERYSAVE)
-              tft.fillCircle(120, 290, 10, ILI9341_LIGHTGREY);
-            else
-              tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+              if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_LIGHTGREY);
+              else if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
             break;
 
           case 1:
             printScreen("Check");
-            tft.fillCircle(120, 290, 10, ILI9341_YELLOW );
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_YELLOW );
             break;
 
           case 2:
@@ -877,30 +1019,30 @@ void updateRunstate()
               int w = batteryWatts();
               if (w == 0) {
                 printScreen("Normal");
-                tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+                if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
               } else if (w > 0) {
                 printScreen("Charging", String(w) + "W");
-                 tft.fillCircle(120, 290, 10, ILI9341_BLUE);
+                if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLUE);
               } else {
                 printScreen("Discharging", String(w * -1) + "W");
-                 tft.fillCircle(120, 290, 10, ILI9341_GREEN);
+                if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_GREEN);
               }
             }
             break;
 
           case 3:
             printScreen("EPS state");
-            tft.fillCircle(120, 290, 10, ILI9341_PURPLE);
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_PURPLE);
             break;
 
           case 4:
             printScreen("FAULT");
-            tft.fillCircle(120, 290, 10, ILI9341_RED);
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
             break;
 
           default:
             printScreen("?");
-            tft.fillCircle(120, 290, 10, ILI9341_BLACK);
+            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLACK);
             break;
         }
 
@@ -909,7 +1051,7 @@ void updateRunstate()
     else
     {
       printScreen("CRC fault");
-      tft.fillCircle(120, 290, 10, ILI9341_RED);
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
     }
   }
 }
@@ -959,26 +1101,34 @@ void printScreen(String text) {
     String text2 = text.substring(index + 1);
     printScreen(text1, text2);
   } else {
-    tft.fillRect(40, 135, 159, 64, ILI9341_CYAN);
-    int pos = 115 - 12 * (text.length() / 2);
-    tft.setCursor(pos, 160);
-    tft.setTextSize(2);
-    tft.setTextColor(ILI9341_BLACK, ILI9341_CYAN);
-    tft.println(text);
+    if (tftModel) {
+      tft.fillRect(40, 135, 159, 64, ILI9341_CYAN);
+      int pos = 115 - 12 * (text.length() / 2);
+      tft.setCursor(pos, 160);
+      tft.setTextSize(2);
+      tft.setTextColor(ILI9341_BLACK, ILI9341_CYAN);
+      tft.println(text);
+    } else {
+      updateOLED("NULL", "NULL", text, "NULL");
+    }
   }
 }
 
 void printScreen(String text1, String text2) {
-  tft.fillRect(40, 135, 159, 64, ILI9341_CYAN);
-  tft.setTextSize(2);
-  tft.setTextColor(ILI9341_BLACK, ILI9341_CYAN);
-  { int pos = 115 - 12 * (text1.length() / 2);
-    tft.setCursor(pos, 145);
-    tft.println(text1);
-  }
-  { int pos = 115 - 12 * (text2.length() / 2);
-    tft.setCursor(pos, 175);
-    tft.println(text2);
+  if (tftModel) {
+    tft.fillRect(40, 135, 159, 64, ILI9341_CYAN);
+    tft.setTextSize(2);
+    tft.setTextColor(ILI9341_BLACK, ILI9341_CYAN);
+    { int pos = 115 - 12 * (text1.length() / 2);
+      tft.setCursor(pos, 145);
+      tft.println(text1);
+    }
+    { int pos = 115 - 12 * (text2.length() / 2);
+      tft.setCursor(pos, 175);
+      tft.println(text2);
+    }
+  } else {
+    updateOLED("NULL", "NULL", text1, text2);
   }
 }
 
@@ -1080,12 +1230,14 @@ void resetConfig() {
   pinMode(2, FUNCTION_0); //set it as gpio
   pinMode(2, OUTPUT);
   digitalWrite(2, LOW); //blue led on
-  analogWrite(TFT_LED, 32); //PWM on led pin to dim screen
-  tft.fillScreen(ILI9341_RED);
-  tft.fillScreen(ILI9341_BLACK);
-  tft.setScrollMargins(1, 10);
-  tft.setTextColor(ILI9341_RED, ILI9341_BLACK); // Red on black
-  tft.println("Double reset detected, clearing config.");
+  if (tftModel) {
+    analogWrite(TFT_LED, 32); //PWM on led pin to dim screen
+    tft.fillScreen(ILI9341_RED);
+    tft.fillScreen(ILI9341_BLACK);
+    tft.setScrollMargins(1, 10);
+    tft.setTextColor(ILI9341_RED, ILI9341_BLACK); // Red on black
+    tft.println("Double reset detected, clearing config.");
+  }
   WiFi.persistent(true);
   WiFi.disconnect();
   WiFi.persistent(false);
@@ -1095,7 +1247,9 @@ void resetConfig() {
   write_eeprom(0, 1, "0");
   EEPROM.commit();
 
-  tft.println("Config cleared. Please reset to configure this device...");
+  if (tftModel) {
+    tft.println("Config cleared. Please reset to configure this device...");
+  }
 
   while (true) {
     digitalWrite(2, HIGH);
@@ -1107,35 +1261,55 @@ void resetConfig() {
 
 void doubleResetDetect() {
   if (drd.detect()) {
-    tft.begin();
-    tft.setRotation(2);
+    if (tftModel) {
+      tft.begin();
+      tft.setRotation(2);
+    }
     resetConfig();
   }
 }
 
 void setup()
 {
+  // * Configure EEPROM an get initial settings
+  EEPROM.begin(512);
+  if (!loadFromEeprom()) { //we don't have config yet, switch between lcd models after each reset
+    tftModel = true;
+    if (EEPROM.read(200)) tftModel = false; //previous reboot we selected TFT model, now switch to OLED
+    EEPROM.write(200, tftModel); // * 200
+    EEPROM.commit();
+  }
   doubleResetDetect(); //detect factory reset first
 
-  tft.begin();
-  tft.setRotation(2);
-  analogWrite(TFT_LED, 32); //PWM on led pin to dim screen
-  tft.fillScreen(ILI9341_CYAN);
-  tft.fillScreen(ILI9341_BLACK);
-  tft.setScrollMargins(1, 10);
-  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK); // White on black
+  if (tftModel) {
+    tft.begin();
+    tft.setRotation(2);
+    analogWrite(TFT_LED, 32); //PWM on led pin to dim screen
+    tft.fillScreen(ILI9341_CYAN);
+    tft.fillScreen(ILI9341_BLACK);
+    tft.setScrollMargins(1, 10);
+    tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK); // White on black
 
-  tft.println("Sofar2mqtt starting...");
+    tft.println("Sofar2mqtt starting...");
+  } else {
+    //Turn on the OLED
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize OLED with the I2C addr 0x3C (for the 64x48)
+    display.clearDisplay();
+    display.display();
+    updateOLED(deviceName, "starting", "WiFi..", version);
+  }
 
   RS485Serial.begin(9600);
   delay(500);
   setup_wifi(); //set wifi and get settings, so first thing to do
 
-  tft.print("Running inverter model: ");
-  if (inverterModel == ME3000) {
-    tft.println("ME3000");
-  } else {
-    tft.println("HYBRID");
+  if (tftModel) {
+    tft.print("Running inverter model: ");
+    if (inverterModel == ME3000) {
+      tft.println("ME3000");
+    } else {
+      tft.println("HYBRID");
+    }
   }
   delay(1000);
 
@@ -1152,9 +1326,11 @@ void setup()
   httpServer.on("/command", handleCommand);
 
   //Wake up the inverter and put it in auto mode to begin with.
-  tft.fillScreen(ILI9341_BLACK);
-  drawBitmap(0, 0, background, 240, 320, ILI9341_WHITE);
-  printScreen("Started");
+  if (tftModel) {
+    tft.fillScreen(ILI9341_BLACK);
+    drawBitmap(0, 0, background, 240, 320, ILI9341_WHITE);
+    printScreen("Started");
+  }
   heartbeat();
   mqttReconnect();
   if (!modbusError) sendPassiveCmd(SOFAR_SLAVE_ID, SOFAR_FN_AUTO, 0, "startup_auto");
