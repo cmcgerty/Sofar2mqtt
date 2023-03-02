@@ -223,8 +223,8 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYBRID, SOFAR_REG_LOADW, "consumption" },
   { HYBRID, SOFAR_REG_PVW, "solarPV" },
   { HYBRID, SOFAR_REG_PVA, "solarPVAmps" },
-  { HYBRID, SOFAR_REG_PV1, "Solarpv1" },
-  { HYBRID, SOFAR_REG_PV2, "Solarpv2" },
+  { HYBRID, SOFAR_REG_PV1, "solarPV1" },
+  { HYBRID, SOFAR_REG_PV2, "solarPV2" },
   { HYBRID, SOFAR_REG_PVDAY, "today_generation" },
   { HYBRID, SOFAR_REG_LOADDAY, "today_consumption" },
   { HYBRID, SOFAR_REG_INTTEMP, "inverter_temp" },
@@ -841,12 +841,12 @@ int readSingleReg(uint8_t id, uint16_t reg, modbusResponse *rs)
 
 int sendPassiveCmdV2(uint8_t id, uint16_t cmd, uint16_t param, String pubTopic) {
   /*SOFAR_V2_REG_PASSIVEMODE
-  *need to be finished and checked
-  *writes to 4487 - 4492 with 6x 32-bit integers
-  *4487 = desired PPC passive power
-  *4489 = min passive power
-  *4491 = max passive power
-  *but 4487 isn't for forced passive mode. Set min and max to same value for that. Negative is discharging
+    need to be finished and checked
+    writes to 4487 - 4492 with 6x 32-bit integers
+    4487 = desired PPC passive power
+    4489 = min passive power
+    4491 = max passive power
+    but 4487 isn't for forced passive mode. Set min and max to same value for that. Negative is discharging
   */
   modbusResponse  rs;
   uint8_t frame[] = { id, MODBUS_FN_WRITESINGLEREG, SOFAR_V2_REG_PASSIVEMODE >> 8, SOFAR_V2_REG_PASSIVEMODE & 0xff, 0, 6, 12, 0, 0, 0, 0, 0, 0, param >> 8, param & 0xff, 0, 0, param >> 8, param & 0xff, 0, 0 };
@@ -1218,11 +1218,30 @@ void handleCommand() {
       message += "Setting MQTT password to: " + value + "\r\n";
       value.toCharArray(MQTT_PASS, sizeof(MQTT_PASS));
       saveEeprom = true;
+    } else if (httpServer.argName(i) == "invertertype") {
+      String value =  httpServer.arg(i);
+      message += "Setting inverter type to: " + value + "\r\n";
+      if (value == "ME3000") {
+        inverterModel = ME3000;
+      } else if (value == "HYBRID") {
+        inverterModel = HYBRID;
+      }
+      saveEeprom = true;
+    } else if (httpServer.argName(i) == "lcdtype") {
+      String value =  httpServer.arg(i);
+      message += "Setting lcd type to: " + value + "\r\n";
+      if (value == "OLED") {
+        tftModel = false;
+      } else if (value == "TFT") {
+        tftModel = true;
+      }
+      saveEeprom = true;
     }
   }
   httpServer.send(200, "text/plain", message);
   if (saveEeprom) saveToEeprom();
 }
+
 
 
 void resetConfig() {
