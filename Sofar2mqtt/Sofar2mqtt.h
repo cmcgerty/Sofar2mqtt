@@ -670,14 +670,15 @@ const char index_html[] PROGMEM = R"=====(
   <div class="container">
     <p><span class="label">Uptime:</span><span class="value" id="uptime"></span></p>
     <p><span class="label">Device:</span><span class="value" id="deviceName"></span></p>
-    <p><span class="label">Current battery SOC:</span><span class="value" id="batterySOC"></span></p>
-    <p><span class="label">Current grid power:</span><span class="value" id="grid_power"></span></p>
-    <p><span class="label">Current battery power:</span><span class="value" id="battery_power"></span></p>
-    <p><span class="label">Current PV power:</span><span class="value" id="pv_power"></span></p>
-    <p id="pv1power" style="display:none"><span class="label">Current PV string 1 power:</span><span class="value" id="pv1_power"></span></p>
-    <p id="pv2power" style="display:none"><span class="label">Current PV string 2 power:</span><span class="value" id="pv2_power"></span></p>
-    <p><span class="label">Current battery temperature:</span><span class="value" id="battery_temp"></span></p>
-    <p><span class="label">Current inverter temperature:</span><span class="value" id="inverter_temp"></span></p>
+    <p><span class="label">Battery SOC:</span><span class="value" id="batterySOC"></span></p>
+    <p><span class="label">Grid power:</span><span class="value" id="grid_power"></span></p>
+    <p><span class="label">Battery power:</span><span class="value" id="battery_power"></span></p>
+    <p><span class="label">PV power:</span><span class="value" id="pv_power"></span></p>
+    <p id="pv1power" style="display:none"><span class="label">PV string 1 power:</span><span class="value" id="pv1_power"></span></p>
+    <p id="pv2power" style="display:none"><span class="label">PV string 2 power:</span><span class="value" id="pv2_power"></span></p>
+    <p><span class="label">Battery temperature:</span><span class="value" id="battery_temp"></span></p>
+    <p><span class="label">Inverter temperature:</span><span class="value" id="inverter_temp"></span></p>
+    <p><span class="label">Inverter heatsink temperature:</span><span class="value" id="inverter_HStemp"></span></p>
     <button id="reboot-btn">Reboot Device</button>
     <button id="factory-btn">Factory reset</button>
     <button id="firmware-btn">Firmware update</button>
@@ -702,17 +703,18 @@ const char index_html[] PROGMEM = R"=====(
         $("#batterySOC").text(data.batterySOC);
         $("#grid_power").text(gridpower);
         $("#battery_power").text(batterypower);
-        $("#pv_power").text(data.solarPV);
+        $("#pv_power").text(data.solarPV * 10);
         if (data.hasOwnProperty('solarPV1')) {
-          $("#pv1_power").text(data.solarPV1);
+          $("#pv1_power").text(data.solarPV1 * 10);
           document.getElementById("pv1power").style.display = "block";
         }
         if (data.hasOwnProperty('solarPV2')) {
-          $("#pv2_power").text(data.solarPV2);
+          $("#pv2_power").text(data.solarPV2 * 10);
           document.getElementById("pv2power").style.display = "block";
         }
         $("#battery_temp").text(data.battery_temp);
         $("#inverter_temp").text(data.inverter_temp);
+        $("#inverter_HStemp").text(data.inverter_HStemp);
       });
     }
 
