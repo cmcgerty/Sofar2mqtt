@@ -2,7 +2,7 @@ enum inverterModelT {ME3000, HYBRID, HYDV2};
 inverterModelT inverterModel = ME3000; //default to ME3000
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.20-alpha2";
+const char* version = "v3.20-alpha5";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -116,6 +116,7 @@ ESP8266WebServer httpServer(80);
 ESP8266HTTPUpdateServer httpUpdater;
 
 char jsonstring[1000];
+
 
 
 // MQTT parameters
@@ -659,7 +660,7 @@ int addStateInfo(String &state, uint16_t reg, String human)
   return 0;
 }
 
-void sendData()
+void retrieveData()
 {
   static unsigned long	lastRun = 0;
 
@@ -667,8 +668,7 @@ void sendData()
   if (checkTimer(&lastRun, SEND_INTERVAL))
   {
     String	state = "{\"uptime\":" + String(millis()) + ",\"deviceName\": \"" + String(deviceName) + "\"";
-    //String  state = "{\"uptime\":" + String(millis());
-
+    
     for (int l = 0; l < sizeof(mqtt_status_reads) / sizeof(struct mqtt_status_register); l++)
       if (mqtt_status_reads[l].inverter == inverterModel) {
         addStateInfo(state, mqtt_status_reads[l].regnum, mqtt_status_reads[l].mqtt_name);
@@ -679,7 +679,7 @@ void sendData()
     //Prefix the mqtt topic name with deviceName.
     String topic(deviceName);
     topic += "/state";
-    sendMqtt(const_cast<char*>(topic.c_str()), state);
+    if (mqtt.connected()) sendMqtt(const_cast<char*>(topic.c_str()), state);
     state.toCharArray(jsonstring, sizeof(jsonstring));
   }
 }
@@ -1016,9 +1016,12 @@ void runStateME3000() {
   {
     case 0:
       printScreen("Standby");
-      if (BATTERYSAVE)
+      if (BATTERYSAVE) {
         if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_LIGHTGREY);
-        else if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+      }
+      else  {
+        if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+      }
       break;
 
     case 1:
@@ -1068,9 +1071,12 @@ void runStateHYBRID() { //same for v2
   {
     case 0:
       printScreen("Standby");
-      if (BATTERYSAVE)
+      if (BATTERYSAVE) {
         if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_LIGHTGREY);
-        else if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+      }
+      else  {
+        if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+      }
       break;
 
     case 1:
@@ -1136,8 +1142,8 @@ void updateRunstate()
   if (checkTimer(&lastRun, RUNSTATE_INTERVAL))
   {
     modbusResponse  response;
-
-    if (!readSingleReg(SOFAR_SLAVE_ID, SOFAR_REG_RUNSTATE, &response)) // 0 response is no error
+    uint16_t reg = inverterModel == HYDV2 ? SOFAR2_REG_RUNSTATE : SOFAR_REG_RUNSTATE;
+    if (!readSingleReg(SOFAR_SLAVE_ID, reg, &response)) // 0 response is no error
     {
       INVERTER_RUNNINGSTATE = ((response.data[0] << 8) | response.data[1]);
       if (inverterModel == 0) { //only ME3000 has different runstates
@@ -1307,7 +1313,7 @@ void handleCommand() {
       message += "Setting devicename to: " + value + "\r\n";
       value.toCharArray(deviceName, sizeof(deviceName));
       saveEeprom = true;
-    } else if (httpServer.argName(i) == "mqtthost") {
+    } else if (httpServer.argName(i) == " ") {
       String value =  httpServer.arg(i);
       message += "Setting MQTT host to: " + value + "\r\n";
       value.toCharArray(MQTT_HOST, sizeof(MQTT_HOST));
@@ -1435,8 +1441,10 @@ void setup()
     tft.print("Running inverter model: ");
     if (inverterModel == ME3000) {
       tft.println("ME3000");
-    } else {
+    } else if (inverterModel == HYBRID) {
       tft.println("HYBRID");
+    } else {
+      tft.println("HYD EP/KTL");
     }
   }
   delay(1000);
@@ -1484,10 +1492,11 @@ void loop()
   if ((!mqtt.connected()) || !mqtt.loop())
   {
     mqttReconnect();
-  } else {
-    //Transmit all data to MQTT
-    if (!modbusError) sendData();
   }
+
+  //Get all data and send to MQTT
+  if (!modbusError) retrieveData();
+
 
   //Set battery save state
   if (!modbusError) batterySave();

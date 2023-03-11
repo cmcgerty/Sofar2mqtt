@@ -607,7 +607,7 @@ const char index_html[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sofar2MQTT - 3.2-alpha3</title>
+  <title>Sofar2MQTT</title>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
     body {
@@ -665,7 +665,7 @@ const char index_html[] PROGMEM = R"=====(
 </head>
 <body>
   <header>
-    <h1>Sofar2MQTT</h1>
+    <h1>Sofar2MQTT  - 3.2-alpha5</h1>
   </header>
   <div class="container">
     <p><span class="label">Uptime:</span><span class="value" id="uptime"></span></p>
