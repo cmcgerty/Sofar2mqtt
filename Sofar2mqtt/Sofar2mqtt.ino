@@ -1,8 +1,8 @@
-enum inverterModelT {ME3000, HYBRID};
+enum inverterModelT {ME3000, HYBRID, HYDV2};
 inverterModelT inverterModel = ME3000; //default to ME3000
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.1";
+const char* version = "v3.2";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -176,6 +176,29 @@ bool BATTERYSAVE = false;
 #define SOFAR_FN_CHARGE		0x0102
 #define SOFAR_FN_AUTO		0x0103
 
+#define SOFAR2_REG_RUNSTATE  0x0404
+#define SOFAR2_REG_GRIDV   0x0480
+#define SOFAR2_REG_GRIDFREQ  0x0484
+#define SOFAR2_REG_BATTW   0x0606
+#define SOFAR2_REG_BATTV   0x0604
+#define SOFAR2_REG_BATTA   0x0605
+#define SOFAR2_REG_BATTSOC 0x0608
+#define SOFAR2_REG_BATTTEMP  0x0607
+#define SOFAR2_REG_GRIDW   0x0485
+#define SOFAR2_REG_LOADW   0x04AF
+#define SOFAR2_REG_PVW   0x05C4
+#define SOFAR2_REG_PVDAY   0x0685
+#define SOFAR2_REG_EXPDAY  0x0691
+#define SOFAR2_REG_IMPDAY  0x068D
+#define SOFAR2_REG_LOADDAY 0x0689
+#define SOFAR2_REG_CHARGDAY  0x0695
+#define SOFAR2_REG_DISCHDAY  0x0699
+#define SOFAR2_REG_BATTCYC 0x060A
+#define SOFAR2_REG_INTTEMP 0x0418
+#define SOFAR2_REG_HSTEMP  0x041A
+#define SOFAR2_REG_PV1   0x0586
+#define SOFAR2_REG_PV2   0x0589
+
 struct mqtt_status_register
 {
   inverterModelT inverter;
@@ -229,6 +252,28 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYBRID, SOFAR_REG_LOADDAY, "today_consumption" },
   { HYBRID, SOFAR_REG_INTTEMP, "inverter_temp" },
   { HYBRID, SOFAR_REG_HSTEMP, "inverter_HStemp" },
+  { HYDV2, SOFAR2_REG_RUNSTATE, "running_state" },
+  { HYDV2, SOFAR2_REG_GRIDV, "grid_voltage" },
+  { HYDV2, SOFAR2_REG_GRIDFREQ, "grid_freq" },
+  { HYDV2, SOFAR2_REG_BATTW, "battery_power" },
+  { HYDV2, SOFAR2_REG_BATTV, "battery_voltage" },
+  { HYDV2, SOFAR2_REG_BATTA, "battery_current" },
+  { HYDV2, SOFAR2_REG_BATTSOC, "batterySOC" },
+  { HYDV2, SOFAR2_REG_BATTTEMP, "battery_temp" },
+  { HYDV2, SOFAR2_REG_GRIDW, "grid_power" },
+  { HYDV2, SOFAR2_REG_LOADW, "consumption" },
+  { HYDV2, SOFAR2_REG_PVW, "solarPV" },
+  { HYDV2, SOFAR2_REG_PVDAY, "today_generation" },
+  { HYDV2, SOFAR2_REG_EXPDAY, "today_exported" },
+  { HYDV2, SOFAR2_REG_IMPDAY, "today_purchase" },
+  { HYDV2, SOFAR2_REG_LOADDAY, "today_consumption" },
+  { HYDV2, SOFAR2_REG_CHARGDAY, "today_charged" },
+  { HYDV2, SOFAR2_REG_DISCHDAY, "today_discharged" },
+  { HYDV2, SOFAR2_REG_BATTCYC, "battery_cycles" },
+  { HYDV2, SOFAR2_REG_INTTEMP, "inverter_temp" },
+  { HYDV2, SOFAR2_REG_HSTEMP, "inverter_HStemp" },
+  { HYDV2, SOFAR2_REG_PV1, "solarPV1" },
+  { HYDV2, SOFAR2_REG_PV2, "solarPV2" },
 };
 
 // This is the return object for the sendModbus() function. Since we are a modbus master, we
@@ -427,7 +472,12 @@ bool loadFromEeprom() {
     read_eeprom(129, 6).toCharArray(MQTT_PORT, 6);    // * 129-134
     read_eeprom(135, 32).toCharArray(MQTT_USER, 32);  // * 135-166
     read_eeprom(167, 32).toCharArray(MQTT_PASS, 32); // * 167 -198
-    if (EEPROM.read(199)) inverterModel = HYBRID;
+    inverterModel = ME3000;
+    if (EEPROM.read(199) == 1) {
+      inverterModel = HYBRID;
+    } else if (EEPROM.read(199) == 2) {
+      inverterModel = HYDV2;
+    }
     tftModel = false;
     if (EEPROM.read(200)) tftModel = true;
     WiFi.hostname(deviceName);
@@ -458,6 +508,8 @@ void setup_wifi()
   <label for='ME3000'>ME3000SP</label><br/>
   <input style='display: inline-block;' type='radio' id='HYBRID' name='inverter_selection' onclick='setHiddenValueInverter()'>
   <label for='HYBRID'>HYDxxxxES</label><br/>
+  <input style='display: inline-block;' type='radio' id='HYDV2' name='inverter_selection' onclick='setHiddenValueInverter()'>
+  <label for='HYDV2'>HYD EP/KTL</label><br/>  
   <br/>
   <script>
   function setHiddenValueLCD() {
@@ -470,12 +522,18 @@ void setup_wifi()
     }
   }
   function setHiddenValueInverter() {
-    var checkBox = document.getElementById('ME3000');
+    var checkBoxME3000 = document.getElementById('ME3000');
     var hiddenvalue = document.getElementById('key_custom_inverter');
-    if (checkBox.checked == true){
+    if (checkBoxME3000.checked == true){
       hiddenvalue.value=0
     } else {
-      hiddenvalue.value=1
+      var checkBoxHYBRID = document.getElementById('HYBRID');
+       if (checkBoxME3000.checked == true){
+         hiddenvalue.value=1 
+       } else {
+         hiddenvalue.value=2 
+       }
+      
     }
   }
   if (document.getElementById("key_custom_lcd").value === "1") {
@@ -537,7 +595,8 @@ void setup_wifi()
   strcpy(MQTT_USER, CUSTOM_MQTT_USER.getValue());
   strcpy(MQTT_PASS, CUSTOM_MQTT_PASS.getValue());
   if (atoi(custom_hidden_lcd.getValue()) == 0) tftModel = false;
-  if (atoi(custom_hidden_inverter.getValue())) inverterModel = HYBRID;
+  if (atoi(custom_hidden_inverter.getValue()) == 1) inverterModel = HYBRID;
+  if (atoi(custom_hidden_inverter.getValue()) == 2) inverterModel = HYDV2;
 
   // * Save the custom parameters to FS which will also initiate a reset to activate other lcd screen if necessary
   if (shouldSaveConfig) saveToEeprom();
@@ -871,6 +930,7 @@ int sendPassiveCmdV2(uint8_t id, uint16_t cmd, uint16_t param, String pubTopic) 
 
 int sendPassiveCmd(uint8_t id, uint16_t cmd, uint16_t param, String pubTopic)
 {
+  if (inverterModel == HYDV2) return 0; //no commands yet
   modbusResponse	rs;
   uint8_t	frame[] = { id, SOFAR_FN_PASSIVEMODE, cmd >> 8, cmd & 0xff, param >> 8, param & 0xff, 0, 0 };
   int		err = -1;
@@ -905,11 +965,17 @@ void sendMqtt(char* topic, String msg_str)
 
 void heartbeat()
 {
+
   static unsigned long  lastRun = 0;
 
   //Send a heartbeat
   if (checkTimer(&lastRun, HEARTBEAT_INTERVAL))
   {
+    if (inverterModel == HYDV2) { //no heartbeat
+      modbusError = false; //for now, fix later
+      return;
+    }
+    
     uint8_t	sendHeartbeat[] = {SOFAR_SLAVE_ID, 0x49, 0x22, 0x01, 0x22, 0x02, 0x00, 0x00};
     int	ret;
 
@@ -937,6 +1003,109 @@ void heartbeat()
   }
 }
 
+
+void runStateME3000() {
+  switch (INVERTER_RUNNINGSTATE)
+  {
+    case 0:
+      printScreen("Standby");
+      if (BATTERYSAVE)
+        if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_LIGHTGREY);
+        else if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+      break;
+
+    case 1:
+      printScreen("Check");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_YELLOW );
+      break;
+
+    case 2:
+      printScreen("Charging", String(batteryWatts()) + "W");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLUE);
+      break;
+
+    case 3:
+      printScreen("Check dis");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_GREEN);
+      break;
+
+    case 4:
+      printScreen("Discharging", String(-1 * batteryWatts()) + "W");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_GREEN);
+      break;
+
+    case 5:
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_PURPLE);
+      break;
+
+    case 6:
+      printScreen("EPS state");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
+      break;
+
+    case 7:
+      printScreen("FAULT");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
+      break;
+
+    default:
+      printScreen("?");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLACK);
+      break;
+  }
+
+}
+
+void runStateHYBRID() { //same for v2
+  switch (INVERTER_RUNNINGSTATE)
+  {
+    case 0:
+      printScreen("Standby");
+      if (BATTERYSAVE)
+        if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_LIGHTGREY);
+        else if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+      break;
+
+    case 1:
+      printScreen("Check");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_YELLOW );
+      break;
+
+    case 2:
+      {
+        int w = batteryWatts();
+        if (w == 0) {
+          printScreen("Normal");
+          if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
+        } else if (w > 0) {
+          printScreen("Charging", String(w) + "W");
+          if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLUE);
+        } else {
+          printScreen("Discharging", String(w * -1) + "W");
+          if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_GREEN);
+        }
+      }
+      break;
+
+    case 3:
+      printScreen("EPS state");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_PURPLE);
+      break;
+
+    case 4:
+      printScreen("FAULT");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
+      break;
+
+    default:
+      printScreen("?");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLACK);
+      break;
+  }
+
+}
+
+
 void updateRunstate()
 {
   static unsigned long	lastRun = 0;
@@ -950,102 +1119,9 @@ void updateRunstate()
     {
       INVERTER_RUNNINGSTATE = ((response.data[0] << 8) | response.data[1]);
 
-      if (inverterModel == ME3000) {
-        switch (INVERTER_RUNNINGSTATE)
-        {
-          case 0:
-            printScreen("Standby");
-            if (BATTERYSAVE)
-              if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_LIGHTGREY);
-              else if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
-            break;
-
-          case 1:
-            printScreen("Check");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_YELLOW );
-            break;
-
-          case 2:
-            printScreen("Charging", String(batteryWatts()) + "W");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLUE);
-            break;
-
-          case 3:
-            printScreen("Check dis");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_GREEN);
-            break;
-
-          case 4:
-            printScreen("Discharging", String(-1 * batteryWatts()) + "W");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_GREEN);
-            break;
-
-          case 5:
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_PURPLE);
-            break;
-
-          case 6:
-            printScreen("EPS state");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
-            break;
-
-          case 7:
-            printScreen("FAULT");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
-            break;
-
-          default:
-            printScreen("?");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLACK);
-            break;
-        }
-      } else if (inverterModel == HYBRID) {
-        switch (INVERTER_RUNNINGSTATE)
-        {
-          case 0:
-            printScreen("Standby");
-            if (BATTERYSAVE)
-              if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_LIGHTGREY);
-              else if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
-            break;
-
-          case 1:
-            printScreen("Check");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_YELLOW );
-            break;
-
-          case 2:
-            {
-              int w = batteryWatts();
-              if (w == 0) {
-                printScreen("Normal");
-                if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
-              } else if (w > 0) {
-                printScreen("Charging", String(w) + "W");
-                if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLUE);
-              } else {
-                printScreen("Discharging", String(w * -1) + "W");
-                if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_GREEN);
-              }
-            }
-            break;
-
-          case 3:
-            printScreen("EPS state");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_PURPLE);
-            break;
-
-          case 4:
-            printScreen("FAULT");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
-            break;
-
-          default:
-            printScreen("?");
-            if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_BLACK);
-            break;
-        }
-
+      switch (inverterModel) {
+        case ME3000: runStateME3000(); break;
+        default: runStateHYBRID(); break; //only ME3000 has different states
       }
     }
     else
