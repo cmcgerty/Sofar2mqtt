@@ -6,6 +6,8 @@ const char* version = "v3.2";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
+bool calculated = true; //default to pre-calculated values before sending to mqtt
+
 #include <DoubleResetDetect.h>
 #define DRD_TIMEOUT 0.1
 #define DRD_ADDRESS 0x00
@@ -457,6 +459,7 @@ void saveToEeprom() {
   write_eeprom(167, 32, MQTT_PASS);  // * 167-198
   EEPROM.write(199, inverterModel); // * 199
   EEPROM.write(200, tftModel); // * 200
+  EEPROM.write(201, calculated); // * 201
   EEPROM.commit();
   ESP.reset(); // reset after save to activate new settings
 }
@@ -480,6 +483,8 @@ bool loadFromEeprom() {
     }
     tftModel = false;
     if (EEPROM.read(200)) tftModel = true;
+    calculated = false;
+    if (EEPROM.read(201)) calculated = true;
     WiFi.hostname(deviceName);
     return true;
   }
@@ -511,6 +516,12 @@ void setup_wifi()
   <input style='display: inline-block;' type='radio' id='HYDV2' name='inverter_selection' onclick='setHiddenValueInverter()'>
   <label for='HYDV2'>HYD EP/KTL</label><br/>  
   <br/>
+  <p>Select data mode:</p>
+  <input style='display: inline-block;' type='radio' id='RAW' name='mode_selection' onclick='setHiddenValueMode()'>
+  <label for='RAW'>Raw data</label><br/>
+  <input style='display: inline-block;' type='radio' id='CALCULATED' name='mode_selection' onclick='setHiddenValueMode()'>
+  <label for='CALCULATED'>Calculated data</label><br/>
+  <br/>
   <script>
   function setHiddenValueLCD() {
     var checkBox = document.getElementById('OLED');
@@ -536,6 +547,15 @@ void setup_wifi()
       
     }
   }
+  function setHiddenValueMode() {
+    var checkBox = document.getElementById('RAW');
+    var hiddenvalue = document.getElementById('key_custom_mode');
+    if (checkBox.checked == true){
+      hiddenvalue.value=0
+    } else {
+      hiddenvalue.value=1
+    }
+  }
   if (document.getElementById("key_custom_lcd").value === "1") {
     document.getElementById("TFT").checked = true  
   } else {
@@ -550,6 +570,13 @@ void setup_wifi()
   }
   document.querySelector("[for='key_custom_inverter']").hidden = true;
   document.getElementById('key_custom_inverter').hidden = true;
+  if (document.getElementById("key_custom_mode").value === "1") {
+    document.getElementById("CALCULATED").checked = true  
+  } else {
+    document.getElementById("RAW").checked = true  
+  }
+  document.querySelector("[for='key_custom_lcd']").hidden = true;
+  document.getElementById('key_custom_lcd').hidden = true;
   </script>
   )";
   WiFiManagerParameter custom_html_inputs(bufferStr);
@@ -559,7 +586,9 @@ void setup_wifi()
   char inverterModelString[6];
   sprintf(inverterModelString, "%u", uint8_t(inverterModel));
   WiFiManagerParameter custom_hidden_inverter("key_custom_inverter", "Inverter type hidden", inverterModelString, 2);
-
+  char modeString[6];
+  sprintf(modeString, "%u", uint8_t(calculated));
+  WiFiManagerParameter custom_hidden_mode("key_custom_mode", "Mode type hidden", modeString, 2);
 
   WiFiManager wifiManager;
   wifiManager.setAPCallback(configModeCallback);
@@ -567,6 +596,7 @@ void setup_wifi()
   wifiManager.setSaveConfigCallback(save_wifi_config_callback);
   wifiManager.addParameter(&custom_hidden_lcd);
   wifiManager.addParameter(&custom_hidden_inverter);
+  wifiManager.addParameter(&custom_hidden_mode);
   wifiManager.addParameter(&custom_html_inputs);
   wifiManager.addParameter(&CUSTOM_MY_HOST);
   wifiManager.addParameter(&CUSTOM_MQTT_HOST);
@@ -965,41 +995,18 @@ void sendMqtt(char* topic, String msg_str)
 
 void heartbeat()
 {
+  if (inverterModel != HYDV2) { //no heartbeat
+    static unsigned long  lastRun = 0;
 
-  static unsigned long  lastRun = 0;
-
-  //Send a heartbeat
-  if (checkTimer(&lastRun, HEARTBEAT_INTERVAL))
-  {
-    if (inverterModel == HYDV2) { //no heartbeat
-      modbusError = false; //for now, fix later
-      return;
-    }
-    
-    uint8_t	sendHeartbeat[] = {SOFAR_SLAVE_ID, 0x49, 0x22, 0x01, 0x22, 0x02, 0x00, 0x00};
-    int	ret;
-
-    if (!(ret = sendModbus(sendHeartbeat, sizeof(sendHeartbeat), NULL))) //ret=0 is good
-    { if (modbusError) { //fixed previous modbus error
-        modbusError = false;
-        if (tftModel) {
-          tft.fillCircle(20, 290, 10, ILI9341_GREEN);
-        } else {
-          updateOLED("NULL", "NULL", "RS485", "OK");
-        }
-      }
-    }
-    else
+    //Send a heartbeat
+    if (checkTimer(&lastRun, HEARTBEAT_INTERVAL))
     {
-      modbusError = true;
-      if (tftModel) {
-        tft.fillCircle(20, 290, 10, ILI9341_RED);
-      } else {
-        updateOLED("NULL", "NULL", "RS485", "ERROR");
-      }
+      uint8_t	sendHeartbeat[] = {SOFAR_SLAVE_ID, 0x49, 0x22, 0x01, 0x22, 0x02, 0x00, 0x00};
+      int	ret;
+
+      sendModbus(sendHeartbeat, sizeof(sendHeartbeat), NULL);
 
     }
-
   }
 }
 
@@ -1115,19 +1122,30 @@ void updateRunstate()
   {
     modbusResponse  response;
 
-    if (!readSingleReg(SOFAR_SLAVE_ID, SOFAR_REG_RUNSTATE, &response))
+    if (!readSingleReg(SOFAR_SLAVE_ID, SOFAR_REG_RUNSTATE, &response)) // 0 response is no error
     {
       INVERTER_RUNNINGSTATE = ((response.data[0] << 8) | response.data[1]);
-
-      switch (inverterModel) {
-        case ME3000: runStateME3000(); break;
-        default: runStateHYBRID(); break; //only ME3000 has different states
+      if (inverterModel == 0) { //only ME3000 has different runstates
+        runStateME3000();
+      } else  {
+        runStateHYBRID();
+      }
+      if (modbusError) { //fixed previous modbus error
+        modbusError = false;
+        if (tftModel) {
+          tft.fillCircle(20, 290, 10, ILI9341_GREEN);
+        }
       }
     }
     else
     {
-      printScreen("CRC fault");
-      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
+      if (!modbusError) { //new modbus error
+        modbusError = true;
+        if (tftModel) {
+          tft.fillCircle(20, 290, 10, ILI9341_RED);
+        }
+        printScreen("RS485 fault");
+      }
     }
   }
 }
@@ -1441,11 +1459,11 @@ void loop()
 {
   loopRuns();
 
-  //Send a heartbeat to keep the inverter awake and update modbusError boolean
-  heartbeat();
+  //Check and display the runstate and update modbusError boolean
+  updateRunstate();
 
-  //Check and display the runstate
-  if (!modbusError) updateRunstate();
+  //Send a heartbeat to keep the inverter awake
+  if (!modbusError) heartbeat();
 
   //make sure mqtt is still connected
   if ((!mqtt.connected()) || !mqtt.loop())
