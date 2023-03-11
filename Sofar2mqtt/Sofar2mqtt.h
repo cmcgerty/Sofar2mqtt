@@ -607,7 +607,7 @@ const char index_html[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sofar2MQTT</title>
+  <title>Sofar2MQTT - 3.2-alpha3</title>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
     body {

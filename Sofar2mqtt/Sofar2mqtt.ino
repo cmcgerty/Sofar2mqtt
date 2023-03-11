@@ -2,7 +2,7 @@ enum inverterModelT {ME3000, HYBRID, HYDV2};
 inverterModelT inverterModel = ME3000; //default to ME3000
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.2";
+const char* version = "v3.20-alpha2";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -1101,6 +1101,21 @@ void runStateHYBRID() { //same for v2
 
     case 4:
       printScreen("FAULT");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
+      break;
+
+    case 5:
+      printScreen("PERM FAULT");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
+      break;
+
+    case 6:
+      printScreen("Upgrading");
+      if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
+      break;
+
+    case 7:
+      printScreen("Self Charging");
       if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_RED);
       break;
 
