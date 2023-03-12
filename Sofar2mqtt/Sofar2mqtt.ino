@@ -1,8 +1,5 @@
-enum inverterModelT {ME3000, HYBRID, HYDV2};
-inverterModelT inverterModel = ME3000; //default to ME3000
-
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.20-alpha7";
+const char* version = "v3.20-alpha8";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -206,8 +203,10 @@ bool BATTERYSAVE = false;
 #define SOFAR2_REG_VPV2   0x0587
 #define SOFAR2_REG_APV2   0x0588
 #define SOFAR2_REG_PV2   0x0589
-enum calculatorT {NOCALC, DIV10, DIV100, MUL10, MUL100};
 
+enum calculatorT {NOCALC, DIV10, DIV100, MUL10, MUL100};
+enum inverterModelT {ME3000, HYBRID, HYDV2};
+inverterModelT inverterModel = ME3000; //default to ME3000
 
 struct mqtt_status_register
 {
@@ -231,15 +230,15 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { ME3000, SOFAR_REG_BATTSOC, "batterySOC", NOCALC },
   { ME3000, SOFAR_REG_BATTTEMP, "battery_temp", NOCALC },
   { ME3000, SOFAR_REG_BATTCYC, "battery_cycles", NOCALC },
-  { ME3000, SOFAR_REG_LOADW, "consumption", NOCALC},
-  { ME3000, SOFAR_REG_PVW, "solarPV", NOCALC },
+  { ME3000, SOFAR_REG_LOADW, "consumption", MUL10},
+  { ME3000, SOFAR_REG_PVW, "solarPV", MUL10 },
   { ME3000, SOFAR_REG_PVA, "solarPVAmps", NOCALC },
-  { ME3000, SOFAR_REG_EXPDAY, "today_exported", NOCALC },
-  { ME3000, SOFAR_REG_IMPDAY, "today_purchase", NOCALC },
-  { ME3000, SOFAR_REG_PVDAY, "today_generation", NOCALC },
-  { ME3000, SOFAR_REG_LOADDAY, "today_consumption", NOCALC },
-  { ME3000, SOFAR_REG_CHARGDAY, "today_charged", NOCALC },
-  { ME3000, SOFAR_REG_DISCHDAY, "today_discharged", NOCALC },
+  { ME3000, SOFAR_REG_EXPDAY, "today_exported", DIV100 },
+  { ME3000, SOFAR_REG_IMPDAY, "today_purchase", DIV100 },
+  { ME3000, SOFAR_REG_PVDAY, "today_generation", DIV100 },
+  { ME3000, SOFAR_REG_LOADDAY, "today_consumption", DIV100 },
+  { ME3000, SOFAR_REG_CHARGDAY, "today_charged", DIV100 },
+  { ME3000, SOFAR_REG_DISCHDAY, "today_discharged", DIV100 },
   { ME3000, SOFAR_REG_INTTEMP, "inverter_temp", NOCALC },
   { ME3000, SOFAR_REG_HSTEMP, "inverter_HStemp", NOCALC },
   { HYBRID, SOFAR_REG_RUNSTATE, "running_state", NOCALC },
@@ -254,13 +253,17 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYBRID, SOFAR_REG_BATTSOC, "batterySOC", NOCALC },
   { HYBRID, SOFAR_REG_BATTTEMP, "battery_temp", NOCALC },
   { HYBRID, SOFAR_REG_BATTCYC, "battery_cycles", NOCALC },
-  { HYBRID, SOFAR_REG_LOADW, "consumption", NOCALC },
+  { HYBRID, SOFAR_REG_LOADW, "consumption", MUL10 },
   { HYBRID, SOFAR_REG_PVW, "solarPV", MUL10 },
   { HYBRID, SOFAR_REG_PVA, "solarPVAmps", NOCALC },
   { HYBRID, SOFAR_REG_PV1, "solarPV1", MUL10 },
   { HYBRID, SOFAR_REG_PV2, "solarPV2", MUL10 },
-  { HYBRID, SOFAR_REG_PVDAY, "today_generation", NOCALC },
-  { HYBRID, SOFAR_REG_LOADDAY, "today_consumption", NOCALC },
+  { HYBRID, SOFAR_REG_PVDAY, "today_generation", DIV100 },
+  { HYBRID, SOFAR_REG_LOADDAY, "today_consumption", DIV100 },
+  { HYBRID, SOFAR_REG_EXPDAY, "today_exported", DIV100 },
+  { HYBRID, SOFAR_REG_IMPDAY, "today_purchase", DIV100 },
+  { HYBRID, SOFAR_REG_CHARGDAY, "today_charged", DIV100 },
+  { HYBRID, SOFAR_REG_DISCHDAY, "today_discharged", DIV100 },    
   { HYBRID, SOFAR_REG_INTTEMP, "inverter_temp", NOCALC },
   { HYBRID, SOFAR_REG_HSTEMP, "inverter_HStemp", NOCALC },
   { HYDV2, SOFAR2_REG_RUNSTATE, "running_state", NOCALC },
@@ -275,12 +278,12 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYDV2, SOFAR2_REG_EXTW, "ext_power", MUL10 },
   { HYDV2, SOFAR2_REG_LOADW, "consumption", MUL10 },
   { HYDV2, SOFAR2_REG_PVW, "solarPV", MUL100 },
-  { HYDV2, SOFAR2_REG_PVDAY, "today_generation", NOCALC },
-  { HYDV2, SOFAR2_REG_EXPDAY, "today_exported", NOCALC },
-  { HYDV2, SOFAR2_REG_IMPDAY, "today_purchase", NOCALC },
-  { HYDV2, SOFAR2_REG_LOADDAY, "today_consumption", NOCALC },
-  { HYDV2, SOFAR2_REG_CHARGDAY, "today_charged", NOCALC },
-  { HYDV2, SOFAR2_REG_DISCHDAY, "today_discharged", NOCALC },
+  { HYDV2, SOFAR2_REG_PVDAY, "today_generation", DIV100 },
+  { HYDV2, SOFAR2_REG_EXPDAY, "today_exported", DIV100 },
+  { HYDV2, SOFAR2_REG_IMPDAY, "today_purchase", DIV100 },
+  { HYDV2, SOFAR2_REG_LOADDAY, "today_consumption", DIV100 },
+  { HYDV2, SOFAR2_REG_CHARGDAY, "today_charged", DIV100 },
+  { HYDV2, SOFAR2_REG_DISCHDAY, "today_discharged", DIV100 },
   { HYDV2, SOFAR2_REG_BATTCYC, "battery_cycles", NOCALC },
   { HYDV2, SOFAR2_REG_INTTEMP, "inverter_temp", NOCALC },
   { HYDV2, SOFAR2_REG_HSTEMP, "inverter_HStemp", NOCALC},
@@ -1137,7 +1140,7 @@ void runStateHYBRID() { //same for v2
 
     case 2:
       {
-        int w = batteryWatts();
+        int16_t w = batteryWatts();
         if (w == 0) {
           printScreen("Normal");
           if (tftModel) tft.fillCircle(120, 290, 10, ILI9341_WHITE);
@@ -1222,26 +1225,15 @@ void updateRunstate()
   }
 }
 
-int batteryWatts()
+int16_t batteryWatts()
 {
-  if ( ((inverterModel == ME3000) && (INVERTER_RUNNINGSTATE == 2 || INVERTER_RUNNINGSTATE == 4)) || ((inverterModel == HYBRID) && (INVERTER_RUNNINGSTATE == 2)) )
+  uint16_t reg = inverterModel == HYDV2 ? SOFAR2_REG_BATTW : SOFAR_REG_BATTW;
+  modbusResponse  response;
+  if (!readSingleReg(SOFAR_SLAVE_ID, reg, &response))
   {
-    modbusResponse  response;
-
-    if (!readSingleReg(SOFAR_SLAVE_ID, SOFAR_REG_BATTW, &response))
-    {
-      unsigned int w = ((response.data[0] << 8) | response.data[1]);
-
-      if (w < 32768) {
-        w = w * 10;
-      }
-      else {
-        w = (65535 - w) * -10;
-      }
-      return w;
-    }
+    int16_t  w = (int16_t)((response.data[0] << 8) | response.data[1]) * 10;
+    return w;
   }
-
   return 0;
 }
 
