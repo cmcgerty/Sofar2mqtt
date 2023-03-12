@@ -687,30 +687,18 @@ const char index_html[] PROGMEM = R"=====(
   <script>
     function getData() {
       $.getJSON("/json", function(data) {
-        let gridpower = data.grid_power;
-        let batterypower = data.battery_power;
-        if (gridpower > 32768) {
-          gridpower = (65535 - gridpower) * -10;
-        } else {
-          gridpower = gridpower * 10;
-        }
-        if (batterypower > 32768) {
-          batterypower = (65535 - batterypower) * -10;
-        } else {
-          batterypower = batterypower * 10;
-        }
         $("#uptime").text(data.uptime);
         $("#deviceName").text(data.deviceName);
         $("#batterySOC").text(data.batterySOC);
-        $("#grid_power").text(gridpower);
-        $("#battery_power").text(batterypower);
-        $("#pv_power").text(data.solarPV * 10);
+        $("#grid_power").text(data.grid_power);
+        $("#battery_power").text(data.battery_power);
+        $("#pv_power").text(data.solarPV);
         if (data.hasOwnProperty('solarPV1')) {
-          $("#pv1_power").text(data.solarPV1 * 10);
+          $("#pv1_power").text(data.solarPV1);
           document.getElementById("pv1power").style.display = "block";
         }
         if (data.hasOwnProperty('solarPV2')) {
-          $("#pv2_power").text(data.solarPV2 * 10);
+          $("#pv2_power").text(data.solarPV2);
           document.getElementById("pv2power").style.display = "block";
         }
         $("#battery_temp").text(data.battery_temp);
