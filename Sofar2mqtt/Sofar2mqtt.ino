@@ -2,7 +2,7 @@ enum inverterModelT {ME3000, HYBRID, HYDV2};
 inverterModelT inverterModel = ME3000; //default to ME3000
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.20-alpha5";
+const char* version = "v3.20-alpha6";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -199,84 +199,95 @@ bool BATTERYSAVE = false;
 #define SOFAR2_REG_BATTCYC 0x060A
 #define SOFAR2_REG_INTTEMP 0x0418
 #define SOFAR2_REG_HSTEMP  0x041A
+#define SOFAR2_REG_VPV1   0x0584
+#define SOFAR2_REG_APV1   0x0585
 #define SOFAR2_REG_PV1   0x0586
+#define SOFAR2_REG_VPV2   0x0587
+#define SOFAR2_REG_APV2   0x0588
 #define SOFAR2_REG_PV2   0x0589
+enum calculatorT {NOCALC, DIV10, DIV100, MUL10, MUL100};
+
 
 struct mqtt_status_register
 {
   inverterModelT inverter;
   uint16_t regnum;
   String    mqtt_name;
+  calculatorT calculator;
 };
 
 static struct mqtt_status_register  mqtt_status_reads[] =
 {
-  { ME3000, SOFAR_REG_RUNSTATE, "running_state" },
-  { ME3000, SOFAR_REG_GRIDV, "grid_voltage" },
-  { ME3000, SOFAR_REG_GRIDA, "grid_current" },
-  { ME3000, SOFAR_REG_GRIDFREQ, "grid_freq" },
-  { ME3000, SOFAR_REG_GRIDW, "grid_power" },
-  { ME3000, SOFAR_REG_BATTW, "battery_power" },
-  { ME3000, SOFAR_REG_BATTV, "battery_voltage" },
-  { ME3000, SOFAR_REG_BATTA, "battery_current" },
-  { ME3000, SOFAR_REG_SYSIOW, "systemIO_power" },
-  { ME3000, SOFAR_REG_BATTSOC, "batterySOC" },
-  { ME3000, SOFAR_REG_BATTTEMP, "battery_temp" },
-  { ME3000, SOFAR_REG_BATTCYC, "battery_cycles" },
-  { ME3000, SOFAR_REG_LOADW, "consumption" },
-  { ME3000, SOFAR_REG_PVW, "solarPV" },
-  { ME3000, SOFAR_REG_PVA, "solarPVAmps" },
-  { ME3000, SOFAR_REG_EXPDAY, "today_exported" },
-  { ME3000, SOFAR_REG_IMPDAY, "today_purchase" },
-  { ME3000, SOFAR_REG_PVDAY, "today_generation" },
-  { ME3000, SOFAR_REG_LOADDAY, "today_consumption" },
-  { ME3000, SOFAR_REG_CHARGDAY, "today_charged" },
-  { ME3000, SOFAR_REG_DISCHDAY, "today_discharged" },
-  { ME3000, SOFAR_REG_INTTEMP, "inverter_temp" },
-  { ME3000, SOFAR_REG_HSTEMP, "inverter_HStemp" },
-  { HYBRID, SOFAR_REG_RUNSTATE, "running_state" },
-  { HYBRID, SOFAR_REG_GRIDV, "grid_voltage" },
-  { HYBRID, SOFAR_REG_GRIDA, "grid_current" },
-  { HYBRID, SOFAR_REG_GRIDFREQ, "grid_freq" },
-  { HYBRID, SOFAR_REG_GRIDW, "grid_power" },
-  { HYBRID, SOFAR_REG_BATTW, "battery_power" },
-  { HYBRID, SOFAR_REG_BATTV, "battery_voltage" },
-  { HYBRID, SOFAR_REG_BATTA, "battery_current" },
-  { HYBRID, SOFAR_REG_SYSIOW, "systemIO_power" },
-  { HYBRID, SOFAR_REG_BATTSOC, "batterySOC" },
-  { HYBRID, SOFAR_REG_BATTTEMP, "battery_temp" },
-  { HYBRID, SOFAR_REG_BATTCYC, "battery_cycles" },
-  { HYBRID, SOFAR_REG_LOADW, "consumption" },
-  { HYBRID, SOFAR_REG_PVW, "solarPV" },
-  { HYBRID, SOFAR_REG_PVA, "solarPVAmps" },
-  { HYBRID, SOFAR_REG_PV1, "solarPV1" },
-  { HYBRID, SOFAR_REG_PV2, "solarPV2" },
-  { HYBRID, SOFAR_REG_PVDAY, "today_generation" },
-  { HYBRID, SOFAR_REG_LOADDAY, "today_consumption" },
-  { HYBRID, SOFAR_REG_INTTEMP, "inverter_temp" },
-  { HYBRID, SOFAR_REG_HSTEMP, "inverter_HStemp" },
-  { HYDV2, SOFAR2_REG_RUNSTATE, "running_state" },
-  { HYDV2, SOFAR2_REG_GRIDV, "grid_voltage" },
-  { HYDV2, SOFAR2_REG_GRIDFREQ, "grid_freq" },
-  { HYDV2, SOFAR2_REG_BATTW, "battery_power" },
-  { HYDV2, SOFAR2_REG_BATTV, "battery_voltage" },
-  { HYDV2, SOFAR2_REG_BATTA, "battery_current" },
-  { HYDV2, SOFAR2_REG_BATTSOC, "batterySOC" },
-  { HYDV2, SOFAR2_REG_BATTTEMP, "battery_temp" },
-  { HYDV2, SOFAR2_REG_GRIDW, "grid_power" },
-  { HYDV2, SOFAR2_REG_LOADW, "consumption" },
-  { HYDV2, SOFAR2_REG_PVW, "solarPV" },
-  { HYDV2, SOFAR2_REG_PVDAY, "today_generation" },
-  { HYDV2, SOFAR2_REG_EXPDAY, "today_exported" },
-  { HYDV2, SOFAR2_REG_IMPDAY, "today_purchase" },
-  { HYDV2, SOFAR2_REG_LOADDAY, "today_consumption" },
-  { HYDV2, SOFAR2_REG_CHARGDAY, "today_charged" },
-  { HYDV2, SOFAR2_REG_DISCHDAY, "today_discharged" },
-  { HYDV2, SOFAR2_REG_BATTCYC, "battery_cycles" },
-  { HYDV2, SOFAR2_REG_INTTEMP, "inverter_temp" },
-  { HYDV2, SOFAR2_REG_HSTEMP, "inverter_HStemp" },
-  { HYDV2, SOFAR2_REG_PV1, "solarPV1" },
-  { HYDV2, SOFAR2_REG_PV2, "solarPV2" },
+  { ME3000, SOFAR_REG_RUNSTATE, "running_state", NOCALC},
+  { ME3000, SOFAR_REG_GRIDV, "grid_voltage", DIV10},
+  { ME3000, SOFAR_REG_GRIDA, "grid_current", DIV100},
+  { ME3000, SOFAR_REG_GRIDFREQ, "grid_freq", DIV100 },
+  { ME3000, SOFAR_REG_GRIDW, "grid_power", MUL10 },
+  { ME3000, SOFAR_REG_BATTW, "battery_power", MUL10 },
+  { ME3000, SOFAR_REG_BATTV, "battery_voltage", DIV10 },
+  { ME3000, SOFAR_REG_BATTA, "battery_current", DIV100 },
+  { ME3000, SOFAR_REG_SYSIOW, "systemIO_power", MUL10 },
+  { ME3000, SOFAR_REG_BATTSOC, "batterySOC", NOCALC },
+  { ME3000, SOFAR_REG_BATTTEMP, "battery_temp", NOCALC },
+  { ME3000, SOFAR_REG_BATTCYC, "battery_cycles", NOCALC },
+  { ME3000, SOFAR_REG_LOADW, "consumption", NOCALC},
+  { ME3000, SOFAR_REG_PVW, "solarPV", NOCALC },
+  { ME3000, SOFAR_REG_PVA, "solarPVAmps", NOCALC },
+  { ME3000, SOFAR_REG_EXPDAY, "today_exported", NOCALC },
+  { ME3000, SOFAR_REG_IMPDAY, "today_purchase", NOCALC },
+  { ME3000, SOFAR_REG_PVDAY, "today_generation", NOCALC },
+  { ME3000, SOFAR_REG_LOADDAY, "today_consumption", NOCALC },
+  { ME3000, SOFAR_REG_CHARGDAY, "today_charged", NOCALC },
+  { ME3000, SOFAR_REG_DISCHDAY, "today_discharged", NOCALC },
+  { ME3000, SOFAR_REG_INTTEMP, "inverter_temp", NOCALC },
+  { ME3000, SOFAR_REG_HSTEMP, "inverter_HStemp", NOCALC },
+  { HYBRID, SOFAR_REG_RUNSTATE, "running_state", NOCALC },
+  { HYBRID, SOFAR_REG_GRIDV, "grid_voltage", DIV10 },
+  { HYBRID, SOFAR_REG_GRIDA, "grid_current", DIV100 },
+  { HYBRID, SOFAR_REG_GRIDFREQ, "grid_freq", DIV100 },
+  { HYBRID, SOFAR_REG_GRIDW, "grid_power", MUL10 },
+  { HYBRID, SOFAR_REG_BATTW, "battery_power", MUL10 },
+  { HYBRID, SOFAR_REG_BATTV, "battery_voltage", DIV10 },
+  { HYBRID, SOFAR_REG_BATTA, "battery_current", DIV100 },
+  { HYBRID, SOFAR_REG_SYSIOW, "systemIO_power", MUL10 },
+  { HYBRID, SOFAR_REG_BATTSOC, "batterySOC", NOCALC },
+  { HYBRID, SOFAR_REG_BATTTEMP, "battery_temp", NOCALC },
+  { HYBRID, SOFAR_REG_BATTCYC, "battery_cycles", NOCALC },
+  { HYBRID, SOFAR_REG_LOADW, "consumption", NOCALC },
+  { HYBRID, SOFAR_REG_PVW, "solarPV", MUL10 },
+  { HYBRID, SOFAR_REG_PVA, "solarPVAmps", NOCALC },
+  { HYBRID, SOFAR_REG_PV1, "solarPV1", MUL10 },
+  { HYBRID, SOFAR_REG_PV2, "solarPV2", MUL10 },
+  { HYBRID, SOFAR_REG_PVDAY, "today_generation", NOCALC },
+  { HYBRID, SOFAR_REG_LOADDAY, "today_consumption", NOCALC },
+  { HYBRID, SOFAR_REG_INTTEMP, "inverter_temp", NOCALC },
+  { HYBRID, SOFAR_REG_HSTEMP, "inverter_HStemp", NOCALC },
+  { HYDV2, SOFAR2_REG_RUNSTATE, "running_state", NOCALC },
+  { HYDV2, SOFAR2_REG_GRIDV, "grid_voltage", DIV10 },
+  { HYDV2, SOFAR2_REG_GRIDFREQ, "grid_freq", DIV100 },
+  { HYDV2, SOFAR2_REG_BATTW, "battery_power", MUL10 },
+  { HYDV2, SOFAR2_REG_BATTV, "battery_voltage", DIV10 },
+  { HYDV2, SOFAR2_REG_BATTA, "battery_current", DIV100 },
+  { HYDV2, SOFAR2_REG_BATTSOC, "batterySOC", NOCALC },
+  { HYDV2, SOFAR2_REG_BATTTEMP, "battery_temp", NOCALC },
+  { HYDV2, SOFAR2_REG_GRIDW, "grid_power", MUL10 },
+  { HYDV2, SOFAR2_REG_LOADW, "consumption", NOCALC },
+  { HYDV2, SOFAR2_REG_PVW, "solarPV", MUL100 },
+  { HYDV2, SOFAR2_REG_PVDAY, "today_generation", NOCALC },
+  { HYDV2, SOFAR2_REG_EXPDAY, "today_exported", NOCALC },
+  { HYDV2, SOFAR2_REG_IMPDAY, "today_purchase", NOCALC },
+  { HYDV2, SOFAR2_REG_LOADDAY, "today_consumption", NOCALC },
+  { HYDV2, SOFAR2_REG_CHARGDAY, "today_charged", NOCALC },
+  { HYDV2, SOFAR2_REG_DISCHDAY, "today_discharged", NOCALC },
+  { HYDV2, SOFAR2_REG_BATTCYC, "battery_cycles", NOCALC },
+  { HYDV2, SOFAR2_REG_INTTEMP, "inverter_temp", NOCALC },
+  { HYDV2, SOFAR2_REG_HSTEMP, "inverter_HStemp", NOCALC},
+  { HYDV2, SOFAR2_REG_PV1, "solarPV1", MUL10},
+  { HYDV2, SOFAR2_REG_VPV1, "solarPV1Volt", DIV10},
+  { HYDV2, SOFAR2_REG_APV1, "solarPV1Current", DIV100},
+  { HYDV2, SOFAR2_REG_PV2, "solarPV2", MUL10},
+  { HYDV2, SOFAR2_REG_VPV2, "solarPV2Volt", DIV10},
+  { HYDV2, SOFAR2_REG_APV2, "solarPV2Current", DIV100},
 };
 
 // This is the return object for the sendModbus() function. Since we are a modbus master, we
@@ -643,21 +654,57 @@ void setup_wifi()
 
 
 
-int addStateInfo(String &state, uint16_t reg, String human)
+int addStateInfo(String &state, unsigned int index)
 {
-  unsigned int	val;
   modbusResponse	rs;
 
-  if (readSingleReg(SOFAR_SLAVE_ID, reg, &rs))
+  if (readSingleReg(SOFAR_SLAVE_ID, mqtt_status_reads[index].regnum, &rs))
     return -1;
 
-  val = ((rs.data[0] << 8) | rs.data[1]);
+  if (calculated) {
+    int16_t  val;
+    val = (int16_t)((rs.data[0] << 8) | rs.data[1]);
 
-  if (!( state == "{"))
-    state += ",";
+    String stringVal;
 
-  state += "\"" + human + "\":" + String(val);
-  return 0;
+    switch (mqtt_status_reads[index].calculator) {
+      case DIV10: {
+          stringVal = String((float)val / 10.0);
+          break;
+        }
+      case DIV100: {
+          stringVal = String((float)val / 100.0);
+          break;
+        }
+      case MUL10: {
+          stringVal = String(val * 10);
+          break;
+        }
+      case MUL100: {
+          stringVal = String(val * 100);
+          break;
+        }
+      default: {
+          stringVal = String(val);
+          break;
+        }
+    }
+
+    if (!( state == "{"))
+      state += ",";
+
+    state += "\"" + mqtt_status_reads[index].mqtt_name + "\":" + stringVal;
+    return 0;
+  } else {
+    unsigned int  val;
+    val = ((rs.data[0] << 8) | rs.data[1]);
+
+    if (!( state == "{"))
+      state += ",";
+
+    state += "\"" + mqtt_status_reads[index].mqtt_name + "\":" + String(val);
+    return 0;
+  }
 }
 
 void retrieveData()
@@ -668,12 +715,14 @@ void retrieveData()
   if (checkTimer(&lastRun, SEND_INTERVAL))
   {
     String	state = "{\"uptime\":" + String(millis()) + ",\"deviceName\": \"" + String(deviceName) + "\"";
-    
-    for (int l = 0; l < sizeof(mqtt_status_reads) / sizeof(struct mqtt_status_register); l++)
-      if (mqtt_status_reads[l].inverter == inverterModel) {
-        addStateInfo(state, mqtt_status_reads[l].regnum, mqtt_status_reads[l].mqtt_name);
-        loopRuns(); //handle some other requests while building the state info
-      }
+
+    if (!modbusError) {
+      for (unsigned int l = 0; l < sizeof(mqtt_status_reads) / sizeof(struct mqtt_status_register); l++)
+        if (mqtt_status_reads[l].inverter == inverterModel) {
+          addStateInfo(state, l);
+          loopRuns(); //handle some other requests while building the state info
+        }
+    }
     state = state + "}";
 
     //Prefix the mqtt topic name with deviceName.
@@ -1290,9 +1339,38 @@ void handleRoot() {
   httpServer.send_P(200, "text/html", index_html);
 }
 
+// Webserver root page
+void handleSettings() {
+  httpServer.send_P(200, "text/html", settings_html);
+}
+
 void handleJson()
 {
   httpServer.send(200, "application/json", jsonstring);
+}
+
+void handleJsonSettings()
+{
+  String jsonsettingsstring;
+  jsonsettingsstring = "{";
+  jsonsettingsstring += "\"deviceName\": \"" + String(deviceName) + "\"";
+  jsonsettingsstring += ",";
+  jsonsettingsstring += "\"mqtthost\": \"" + String(MQTT_HOST) + "\"";
+  jsonsettingsstring += ",";
+  jsonsettingsstring += "\"mqttport\": \"" + String(MQTT_PORT) + "\"";
+  jsonsettingsstring += ",";
+  jsonsettingsstring += "\"mqttuser\": \"" + String(MQTT_USER) + "\"";
+  jsonsettingsstring += ",";
+  jsonsettingsstring += "\"mqttpass\": \"" + String(MQTT_PASS) + "\"";
+  jsonsettingsstring += ",";
+  jsonsettingsstring += "\"inverterModel\": \"" + String(inverterModel) + "\"";
+  jsonsettingsstring += ",";
+  jsonsettingsstring += "\"tftModel\": \"" + String(tftModel) + "\"";
+  jsonsettingsstring += ",";
+  jsonsettingsstring += "\"calculated\": \"" + String(calculated) + "\"";
+  jsonsettingsstring += "}";
+
+  httpServer.send(200, "application/json", jsonsettingsstring);
 }
 
 void handleCommand() {
@@ -1301,60 +1379,77 @@ void handleCommand() {
   String message = "";
   for (int i = 0 ; i < num ; i++) {
     if ((httpServer.argName(i) == "reset") || (httpServer.argName(i) == "restart") || (httpServer.argName(i) == "reboot") || ((httpServer.argName(i) == "reload"))) {
-      httpServer.send(200, "text/plain", "Restarting!\r\n");
+      httpServer.send(200, "text/html", "<html><head><meta http-equiv=\"refresh\" content=\"2; URL=/\" /></head><body>Restarting!</body></html>");
       delay(1000);
       ESP.reset();
     } else if (httpServer.argName(i) == "factoryreset") {
-      httpServer.send(200, "text/plain", "Factory reset! Please restart manually.\r\n");
+      httpServer.send(200, "text/html", "<html><head><meta http-equiv=\"refresh\" content=\"2; URL=/\" /></head><body>Factory reset! Please reconfig using wifi hotspot!</body></html>");
       delay(1000);
       resetConfig();
-    } else if (httpServer.argName(i) == "devicename") {
+    } else if (httpServer.argName(i) == "deviceName") {
       String value =  httpServer.arg(i);
-      message += "Setting devicename to: " + value + "\r\n";
+      message += "Setting devicename to: " + value + "<br>";
       value.toCharArray(deviceName, sizeof(deviceName));
       saveEeprom = true;
-    } else if (httpServer.argName(i) == " ") {
+    } else if (httpServer.argName(i) == "mqtthost") {
       String value =  httpServer.arg(i);
-      message += "Setting MQTT host to: " + value + "\r\n";
+      message += "Setting MQTT host to: " + value + "<br>";
       value.toCharArray(MQTT_HOST, sizeof(MQTT_HOST));
       saveEeprom = true;
     } else if (httpServer.argName(i) == "mqttport") {
       String value =  httpServer.arg(i);
-      message += "Setting MQTT port to: " + value + "\r\n";
+      message += "Setting MQTT port to: " + value + "<br>";
       value.toCharArray(MQTT_PORT, sizeof(MQTT_PORT));
       saveEeprom = true;
     } else if (httpServer.argName(i) == "mqttuser") {
       String value =  httpServer.arg(i);
-      message += "Setting MQTT username to: " + value + "\r\n";
+      message += "Setting MQTT username to: " + value + "<br>";
       value.toCharArray(MQTT_USER, sizeof(MQTT_USER));
       saveEeprom = true;
     } else if (httpServer.argName(i) == "mqttpass") {
       String value =  httpServer.arg(i);
-      message += "Setting MQTT password to: " + value + "\r\n";
+      message += "Setting MQTT password to: " + value + "<br>";
       value.toCharArray(MQTT_PASS, sizeof(MQTT_PASS));
       saveEeprom = true;
-    } else if (httpServer.argName(i) == "invertertype") {
+    } else if (httpServer.argName(i) == "inverterModel") {
       String value =  httpServer.arg(i);
-      message += "Setting inverter type to: " + value + "\r\n";
-      if (value == "ME3000") {
+      message += "Setting inverter type to: " + value + "<br>";
+      if (value == "me3000") {
         inverterModel = ME3000;
-      } else if (value == "HYBRID") {
+      } else if (value == "hybrid") {
         inverterModel = HYBRID;
+      } else if (value == "hydv2") {
+        inverterModel = HYDV2;
       }
       saveEeprom = true;
-    } else if (httpServer.argName(i) == "lcdtype") {
+    } else if (httpServer.argName(i) == "tftModel") {
       String value =  httpServer.arg(i);
-      message += "Setting lcd type to: " + value + "\r\n";
-      if (value == "OLED") {
+      message += "Setting lcd type to: " + value + "<br>";
+      if (value == "oled") {
         tftModel = false;
-      } else if (value == "TFT") {
+      } else if (value == "tft") {
         tftModel = true;
+      }
+      saveEeprom = true;
+    } else if (httpServer.argName(i) == "calculated") {
+      String value =  httpServer.arg(i);
+      message += "Setting calculated mode to: " + value + "<br>";
+      if (value == "true") {
+        calculated = true;
+      } else {
+        calculated = false;
       }
       saveEeprom = true;
     }
   }
-  httpServer.send(200, "text/plain", message);
-  if (saveEeprom) saveToEeprom();
+
+  if (saveEeprom) {
+    httpServer.send(200, "text/html", "<html><head><meta http-equiv=\"refresh\" content=\"5; URL=/\" /></head><body>" + message + "</body></html>");
+    delay(1000);
+    saveToEeprom();
+  } else {
+    httpServer.send(200, "text/html", "<html><head><meta http-equiv=\"refresh\" content=\"2; URL=/\" /></head><body>Nothing to do!</body></html>");
+  }
 }
 
 
@@ -1458,7 +1553,9 @@ void setup()
   httpServer.begin();
   MDNS.addService("http", "tcp", 80);
   httpServer.on("/", handleRoot);
+  httpServer.on("/settings", handleSettings);
   httpServer.on("/json", handleJson);
+  httpServer.on("/jsonsettings", handleJsonSettings);
   httpServer.on("/command", handleCommand);
 
   //Wake up the inverter and put it in auto mode to begin with.
@@ -1495,8 +1592,7 @@ void loop()
   }
 
   //Get all data and send to MQTT
-  if (!modbusError) retrieveData();
-
+  retrieveData();
 
   //Set battery save state
   if (!modbusError) batterySave();

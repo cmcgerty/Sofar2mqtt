@@ -665,7 +665,7 @@ const char index_html[] PROGMEM = R"=====(
 </head>
 <body>
   <header>
-    <h1>Sofar2MQTT  - 3.2-alpha5</h1>
+    <h1>Sofar2MQTT  - 3.2-alpha6</h1>
   </header>
   <div class="container">
     <p><span class="label">Uptime:</span><span class="value" id="uptime"></span></p>
@@ -679,6 +679,7 @@ const char index_html[] PROGMEM = R"=====(
     <p><span class="label">Battery temperature:</span><span class="value" id="battery_temp"></span></p>
     <p><span class="label">Inverter temperature:</span><span class="value" id="inverter_temp"></span></p>
     <p><span class="label">Inverter heatsink temperature:</span><span class="value" id="inverter_HStemp"></span></p>
+    <button id="settings-btn">Settings</button>
     <button id="reboot-btn">Reboot Device</button>
     <button id="factory-btn">Factory reset</button>
     <button id="firmware-btn">Firmware update</button>
@@ -719,25 +720,179 @@ const char index_html[] PROGMEM = R"=====(
     }
 
     function rebootDevice() {
-      $.get("/command?reboot");
-      alert("Device is rebooting...");
+      if (confirm("Are you sure you want to reboot this device?") == true) {
+        $.get("/command?reboot");
+        alert("Device is rebooting...");
+      }
     }
     
     function factoryReset() {
-      $.get("/command?factoryreset");
-      alert("Factory reset in progress. Reconnect to hotspot to reconfigure.");
+      if (confirm("Are you sure you want to factory reset this device?") == true) {
+        $.get("/command?factoryreset");
+        alert("Factory reset in progress. Reconnect to hotspot to reconfigure.");
+      }
     }
     
     getData();
 
     setInterval(getData, 10000); // call getData every 10 seconds
-
-    $("#reboot-btn").click(rebootDevice);
+    $("#settings-btn").click(function(e){
+         e.preventDefault();
+         window.location = "/settings";    
+    });    $("#reboot-btn").click(rebootDevice);
     $("#factory-btn").click(factoryReset);
     $("#firmware-btn").click(function(e){
          e.preventDefault();
          window.location = "/update";    
-});
+    });
+  </script>
+</body>
+</html>
+)=====";
+
+
+const char settings_html[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Sofar2MQTT - settings</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #F8F8F8;
+    }
+
+    header {
+      background-color: #333;
+      color: #FFF;
+      padding: 10px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2em;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #FFF;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      border-radius: 5px;
+      margin-top: 50px;
+    }
+
+    .label {
+      font-weight: bold;
+      margin-right: 10px;
+      display: inline-block;
+      width: 150px;
+      text-align: left;
+    }
+
+    .value {
+      font-weight: normal;
+    }
+
+    button {
+      background-color: #333;
+      color: #FFF;
+      padding: 10px 20px;
+      border-radius: 5px;
+      border: none;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #555;
+    }    
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sofar2MQTT - settings</h1>
+  </header>
+  <div class="container">
+    <form id="settings-form" action="/command" method="get">
+      <span class="label">Device name:</span><span class="value"><input type="text" id="deviceName" name="deviceName"></span><br>
+      <span class="label">MQTT host:</span><span class="value"><input type="text" id="mqtthost" name="mqtthost"></span><br>
+      <span class="label">MQTT port:</span><span class="value"><input type="text" id="mqttport" name="mqttport"></span><br>
+      <span class="label">MQTT user:</span><span class="value"><input type="text" id="mqttuser" name="mqttuser"></span><br>
+      <span class="label">MQTT pass:</span><span class="value"><input type="password" id="mqttpass" name="mqttpass"></span><br>
+      <span class="label">Inverter type:</span>
+      <span class="value">
+        <input style='display: inline-block;' type='radio' id='ME3000' name='inverterModel' value='me3000'>
+        <label for='ME3000'>ME3000SP</label>
+        <input style='display: inline-block;' type='radio' id='HYBRID' name='inverterModel'value='hybrid'>
+        <label for='HYBRID'>HYDxxxxES</label>
+        <input style='display: inline-block;' type='radio' id='HYDV2' name='inverterModel'value='hydv2'>
+        <label for='HYDV2'>HYD EP/KTL</label>
+      </span><br>
+      <span class="label">Screen type:</span><span class="value">
+        <input style='display: inline-block;' type='radio' id='TFT' name='tftModel' value='tft'>
+        <label for='TFT'>TFT</label>
+        <input style='display: inline-block;' type='radio' id='OLED' name='tftModel' value='oled'>
+        <label for='OLED'>OLED</label>
+      </span><br>
+      <span class="label">Data mode:</span><span class="value">
+        <input style='display: inline-block;' type='radio' id='RAW' name='calculated' value='false'>
+        <label for='RAW'>Raw data</label>
+        <input style='display: inline-block;' type='radio' id='CALCULATED' name='calculated' value='true'>
+        <label for='CALCULATED'>Calculated data</label>
+      </span><br>
+      <button type="submit" id="save-btn">Save & reboot</button>
+      <button id="home-btn">Go back</button>
+    </form>
+  </div>
+  <script>
+    function getData() {
+      $.getJSON("/jsonsettings", function(data) {
+        $("#deviceName").val(data.deviceName);
+        $("#mqtthost").val(data.mqtthost);
+        $("#mqttport").val(data.mqttport);
+        $("#mqttuser").val(data.mqttuser);
+        $("#mqttpass").val(data.mqttpass);
+        if (data.hasOwnProperty('inverterModel')) {
+          if (data.inverterModel == '0') {
+            $("#ME3000").prop("checked",true);
+          } else if (data.inverterModel == '1') {
+            $("#HYBRID").prop("checked",true);
+          } else if (data.inverterModel == '2') {
+            $("#HYDV2").prop("checked",true);
+          }
+        }
+        if (data.hasOwnProperty('tftModel')) {
+          if (data.tftModel == '0') {
+            $("#OLED").prop("checked",true);
+          } else {
+            $("#TFT").prop("checked",true);
+          } 
+        }
+        if (data.hasOwnProperty('calculated')) {
+          if (data.calculated == '0') {
+            $("#RAW").prop("checked",true);
+          } else {
+            $("#CALCULATED").prop("checked",true);
+          } 
+        }
+      });
+    }
+
+    getData();
+    
+    $("#home-btn").click(function(e){
+         e.preventDefault();
+         window.location = "/";    
+    });
   </script>
 </body>
 </html>
