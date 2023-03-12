@@ -2,7 +2,7 @@ enum inverterModelT {ME3000, HYBRID, HYDV2};
 inverterModelT inverterModel = ME3000; //default to ME3000
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.20-alpha6";
+const char* version = "v3.20-alpha7";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -187,7 +187,8 @@ bool BATTERYSAVE = false;
 #define SOFAR2_REG_BATTA   0x0605
 #define SOFAR2_REG_BATTSOC 0x0608
 #define SOFAR2_REG_BATTTEMP  0x0607
-#define SOFAR2_REG_GRIDW   0x0485
+#define SOFAR2_REG_ACTW   0x0485
+#define SOFAR2_REG_EXTW   0x04AE
 #define SOFAR2_REG_LOADW   0x04AF
 #define SOFAR2_REG_PVW   0x05C4
 #define SOFAR2_REG_PVDAY   0x0685
@@ -270,8 +271,9 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYDV2, SOFAR2_REG_BATTA, "battery_current", DIV100 },
   { HYDV2, SOFAR2_REG_BATTSOC, "batterySOC", NOCALC },
   { HYDV2, SOFAR2_REG_BATTTEMP, "battery_temp", NOCALC },
-  { HYDV2, SOFAR2_REG_GRIDW, "grid_power", MUL10 },
-  { HYDV2, SOFAR2_REG_LOADW, "consumption", NOCALC },
+  { HYDV2, SOFAR2_REG_ACTW, "grid_power", MUL10 },
+  { HYDV2, SOFAR2_REG_EXTW, "ext_power", MUL10 },
+  { HYDV2, SOFAR2_REG_LOADW, "consumption", MUL10 },
   { HYDV2, SOFAR2_REG_PVW, "solarPV", MUL100 },
   { HYDV2, SOFAR2_REG_PVDAY, "today_generation", NOCALC },
   { HYDV2, SOFAR2_REG_EXPDAY, "today_exported", NOCALC },
