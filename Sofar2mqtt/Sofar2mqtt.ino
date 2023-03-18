@@ -1,5 +1,5 @@
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.20-alpha8";
+const char* version = "v3.20-alpha9";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -114,8 +114,6 @@ ESP8266HTTPUpdateServer httpUpdater;
 
 char jsonstring[1000];
 
-
-
 // MQTT parameters
 #include <PubSubClient.h>
 PubSubClient mqtt(wifi);
@@ -137,9 +135,6 @@ unsigned int INVERTER_RUNNINGSTATE;
 #define MODBUS_FN_WRITESINGLEREG 0x10
 #define SOFAR_FN_PASSIVEMODE    0x42
 #define SOFAR_PARAM_STANDBY     0x5555
-
-//newer models have passive control at normal holding regs, writing 6x 32-byte integers
-#define SOFAR_V2_REG_PASSIVEMODE  0x1187
 
 // Battery Save mode is a hybrid mode where the battery will charge from excess solar but not discharge.
 bool BATTERYSAVE = false;
@@ -204,6 +199,9 @@ bool BATTERYSAVE = false;
 #define SOFAR2_REG_APV2   0x0588
 #define SOFAR2_REG_PV2   0x0589
 
+#define SOFAR2_REG_STORAGEMODE  0x4368
+#define SOFAR2_REG_PASSIVECONTROL 0x4487 //4487-4492, write 3x 32bit values with first 32bit = 0x0000 and next two are same (actually low=high limit) for the value of passive control
+
 enum calculatorT {NOCALC, DIV10, DIV100, MUL10, MUL100};
 enum inverterModelT {ME3000, HYBRID, HYDV2};
 inverterModelT inverterModel = ME3000; //default to ME3000
@@ -263,7 +261,7 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYBRID, SOFAR_REG_EXPDAY, "today_exported", DIV100 },
   { HYBRID, SOFAR_REG_IMPDAY, "today_purchase", DIV100 },
   { HYBRID, SOFAR_REG_CHARGDAY, "today_charged", DIV100 },
-  { HYBRID, SOFAR_REG_DISCHDAY, "today_discharged", DIV100 },    
+  { HYBRID, SOFAR_REG_DISCHDAY, "today_discharged", DIV100 },
   { HYBRID, SOFAR_REG_INTTEMP, "inverter_temp", NOCALC },
   { HYBRID, SOFAR_REG_HSTEMP, "inverter_HStemp", NOCALC },
   { HYDV2, SOFAR2_REG_RUNSTATE, "running_state", NOCALC },
@@ -659,56 +657,56 @@ void setup_wifi()
 
 
 
-int addStateInfo(String &state, unsigned int index)
+void addStateInfo(String &state, unsigned int index)
 {
   modbusResponse	rs;
 
-  if (readSingleReg(SOFAR_SLAVE_ID, mqtt_status_reads[index].regnum, &rs))
-    return -1;
-
-  if (calculated) {
-    int16_t  val;
-    val = (int16_t)((rs.data[0] << 8) | rs.data[1]);
-
+  if (readSingleReg(SOFAR_SLAVE_ID, mqtt_status_reads[index].regnum, &rs) == 0) {
     String stringVal;
+    if (calculated) {
+      int16_t  val;
+      val = (int16_t)((rs.data[0] << 8) | rs.data[1]);
 
-    switch (mqtt_status_reads[index].calculator) {
-      case DIV10: {
-          stringVal = String((float)val / 10.0);
-          break;
-        }
-      case DIV100: {
-          stringVal = String((float)val / 100.0);
-          break;
-        }
-      case MUL10: {
-          stringVal = String(val * 10);
-          break;
-        }
-      case MUL100: {
-          stringVal = String(val * 100);
-          break;
-        }
-      default: {
-          stringVal = String(val);
-          break;
-        }
+      switch (mqtt_status_reads[index].calculator) {
+        case DIV10: {
+            stringVal = String((float)val / 10.0);
+            break;
+          }
+        case DIV100: {
+            stringVal = String((float)val / 100.0);
+            break;
+          }
+        case MUL10: {
+            stringVal = String(val * 10);
+            break;
+          }
+        case MUL100: {
+            stringVal = String(val * 100);
+            break;
+          }
+        default: {
+            stringVal = String(val);
+            break;
+          }
+      }
+
+    } else {
+      unsigned int  val;
+      val = ((rs.data[0] << 8) | rs.data[1]);
+      stringVal = String(val);
     }
 
     if (!( state == "{"))
       state += ",";
 
     state += "\"" + mqtt_status_reads[index].mqtt_name + "\":" + stringVal;
-    return 0;
-  } else {
-    unsigned int  val;
-    val = ((rs.data[0] << 8) | rs.data[1]);
 
-    if (!( state == "{"))
-      state += ",";
-
-    state += "\"" + mqtt_status_reads[index].mqtt_name + "\":" + String(val);
-    return 0;
+    if ((mqtt_status_reads[index].mqtt_name == "batterySOC") && (tftModel)) {
+      tft.setCursor(105, 70);
+      tft.setTextSize(2);
+      tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+      tft.println(stringVal + "%");
+    }
   }
 }
 
@@ -756,35 +754,50 @@ void mqttCallback(String topic, byte *message, unsigned int length)
   int   messageValue = messageTemp.toInt();
   bool  messageBool = ((messageTemp != "false") && (messageTemp != "battery_save"));
 
-  if (cmd == "standby")
-  {
-    if (messageBool)
-    {
-      fnCode = SOFAR_FN_STANDBY;
-      fnParam = SOFAR_PARAM_STANDBY;
-    }
-  }
-  else if (cmd == "auto")
-  {
-    if (messageBool)
-      fnCode = SOFAR_FN_AUTO;
-    else if (messageTemp == "battery_save")
-      BATTERYSAVE = true;
-  }
-  else if ((messageValue > 0) && (messageValue <= MAX_POWER))
-  {
-    fnParam = messageValue;
+  switch (inverterModel) {
+    case HYDV2: {
+        if (cmd == "standby") {
+          sendPassiveCmdV2(SOFAR_SLAVE_ID, SOFAR2_REG_PASSIVECONTROL, 0, cmd);
+        } else if (cmd == "auto") {
+        } else if (messageValue > 0) {
+          sendPassiveCmdV2(SOFAR_SLAVE_ID, SOFAR2_REG_PASSIVECONTROL, messageValue, cmd);
+        }
+        break;
+      }
+    default: {
+        if (cmd == "standby")
+        {
+          if (messageBool)
+          {
+            fnCode = SOFAR_FN_STANDBY;
+            fnParam = SOFAR_PARAM_STANDBY;
+          }
+        }
+        else if (cmd == "auto")
+        {
+          if (messageBool)
+            fnCode = SOFAR_FN_AUTO;
+          else if (messageTemp == "battery_save")
+            BATTERYSAVE = true;
+        }
+        else if ((messageValue > 0) && (messageValue <= MAX_POWER))
+        {
+          fnParam = messageValue;
 
-    if (cmd == "charge")
-      fnCode = SOFAR_FN_CHARGE;
-    else if (cmd == "discharge")
-      fnCode = SOFAR_FN_DISCHARGE;
-  }
+          if (cmd == "charge")
+            fnCode = SOFAR_FN_CHARGE;
+          else if (cmd == "discharge")
+            fnCode = SOFAR_FN_DISCHARGE;
+        }
 
-  if (fnCode)
-  {
-    BATTERYSAVE = false;
-    sendPassiveCmd(SOFAR_SLAVE_ID, fnCode, fnParam, cmd);
+        if (fnCode)
+        {
+          BATTERYSAVE = false;
+          sendPassiveCmd(SOFAR_SLAVE_ID, fnCode, fnParam, cmd);
+        }
+        break;
+      }
+
   }
 }
 
@@ -983,7 +996,7 @@ int readSingleReg(uint8_t id, uint16_t reg, modbusResponse *rs)
 }
 
 int sendPassiveCmdV2(uint8_t id, uint16_t cmd, uint16_t param, String pubTopic) {
-  /*SOFAR_V2_REG_PASSIVEMODE
+  /*SOFAR2_REG_PASSIVECONTROL
     need to be finished and checked
     writes to 4487 - 4492 with 6x 32-bit integers
     4487 = desired PPC passive power
@@ -992,7 +1005,7 @@ int sendPassiveCmdV2(uint8_t id, uint16_t cmd, uint16_t param, String pubTopic) 
     but 4487 isn't for forced passive mode. Set min and max to same value for that. Negative is discharging
   */
   modbusResponse  rs;
-  uint8_t frame[] = { id, MODBUS_FN_WRITESINGLEREG, SOFAR_V2_REG_PASSIVEMODE >> 8, SOFAR_V2_REG_PASSIVEMODE & 0xff, 0, 6, 12, 0, 0, 0, 0, 0, 0, param >> 8, param & 0xff, 0, 0, param >> 8, param & 0xff, 0, 0 };
+  uint8_t frame[] = { id, MODBUS_FN_WRITESINGLEREG, SOFAR2_REG_PASSIVECONTROL >> 8, SOFAR2_REG_PASSIVECONTROL & 0xff, 0, 6, 12, 0, 0, 0, 0, 0, 0, param >> 8, param & 0xff, 0, 0, param >> 8, param & 0xff, 0, 0 };
   int   err = -1;
   String    retMsg;
 
