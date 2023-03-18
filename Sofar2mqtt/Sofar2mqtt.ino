@@ -1,5 +1,6 @@
+
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.20-alpha9";
+const char* version = "v3.20-alpha10";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -132,7 +133,7 @@ unsigned int INVERTER_RUNNINGSTATE;
 
 #define MAX_FRAME_SIZE          64
 #define MODBUS_FN_READSINGLEREG 0x03
-#define MODBUS_FN_WRITESINGLEREG 0x10
+#define MODBUS_FN_WRITEMULREG 0x10
 #define SOFAR_FN_PASSIVEMODE    0x42
 #define SOFAR_PARAM_STANDBY     0x5555
 
@@ -200,7 +201,7 @@ bool BATTERYSAVE = false;
 #define SOFAR2_REG_PV2   0x0589
 
 #define SOFAR2_REG_STORAGEMODE  0x4368
-#define SOFAR2_REG_PASSIVECONTROL 0x4487 //4487-4492, write 3x 32bit values with first 32bit = 0x0000 and next two are same (actually low=high limit) for the value of passive control
+#define SOFAR2_REG_PASSIVECONTROL 0x1187 //in decimal 4487-4492, write 3x 32bit values with first 32bit = 0x0000 and next two are same (actually low=high limit) for the value of passive control
 
 enum calculatorT {NOCALC, DIV10, DIV100, MUL10, MUL100};
 enum inverterModelT {ME3000, HYBRID, HYDV2};
@@ -759,7 +760,10 @@ void mqttCallback(String topic, byte *message, unsigned int length)
         if (cmd == "standby") {
           sendPassiveCmdV2(SOFAR_SLAVE_ID, SOFAR2_REG_PASSIVECONTROL, 0, cmd);
         } else if (cmd == "auto") {
-        } else if (messageValue > 0) {
+        } else if ((cmd == "charge") || (cmd == "discharge")) {
+          if (cmd == "discharge") {
+            messageValue = messageValue * -1;
+          }
           sendPassiveCmdV2(SOFAR_SLAVE_ID, SOFAR2_REG_PASSIVECONTROL, messageValue, cmd);
         }
         break;
@@ -995,7 +999,7 @@ int readSingleReg(uint8_t id, uint16_t reg, modbusResponse *rs)
   return sendModbus(frame, sizeof(frame), rs);
 }
 
-int sendPassiveCmdV2(uint8_t id, uint16_t cmd, uint16_t param, String pubTopic) {
+int sendPassiveCmdV2(uint8_t id, uint16_t cmd, int32_t param, String pubTopic) {
   /*SOFAR2_REG_PASSIVECONTROL
     need to be finished and checked
     writes to 4487 - 4492 with 6x 32-bit integers
@@ -1005,7 +1009,7 @@ int sendPassiveCmdV2(uint8_t id, uint16_t cmd, uint16_t param, String pubTopic) 
     but 4487 isn't for forced passive mode. Set min and max to same value for that. Negative is discharging
   */
   modbusResponse  rs;
-  uint8_t frame[] = { id, MODBUS_FN_WRITESINGLEREG, SOFAR2_REG_PASSIVECONTROL >> 8, SOFAR2_REG_PASSIVECONTROL & 0xff, 0, 6, 12, 0, 0, 0, 0, 0, 0, param >> 8, param & 0xff, 0, 0, param >> 8, param & 0xff, 0, 0 };
+  uint8_t frame[] = { id, MODBUS_FN_WRITEMULREG, (cmd >> 8) & 0xff, cmd & 0xff, 0, 6, 12, 0, 0, 0, 0, (param >> 24) & 0xff, (param >> 16) & 0xff, (param >> 8) & 0xff, param & 0xff, (param >> 25) & 0xff, (param >> 16) & 0xff, (param >> 8) & 0xff, param & 0xff, 0, 0 };
   int   err = -1;
   String    retMsg;
 
