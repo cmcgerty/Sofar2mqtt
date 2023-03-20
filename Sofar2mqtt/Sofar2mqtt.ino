@@ -1,6 +1,6 @@
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.20-alpha10";
+const char* version = "v3.20-alpha11";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -122,11 +122,18 @@ PubSubClient mqtt(wifi);
 // SoftwareSerial is used to create a second serial port, which will be deidcated to RS485.
 // The built-in serial port remains available for flashing and debugging.
 #include <SoftwareSerial.h>
+//for OLED version default to original sofar2mqtt ports
+#define SERIAL_COMMUNICATION_CONTROL_PIN D5 // Transmission set pin OLED version
 #define RS485_TX HIGH
 #define RS485_RX LOW
+#define OLEDRXPin    D6  // Serial Receive pin OLED version
+#define OLEDTXPin    D7  // Serial Transmit pin OLED version
+SoftwareSerial RS485Serial(OLEDRXPin, OLEDTXPin);
+
+//for TFT verion we use the hardware serial (pin 3 and 1)
 #define RXPin        3  // Serial Receive pin
 #define TXPin        1  // Serial Transmit pin
-SoftwareSerial RS485Serial(RXPin, TXPin);
+
 
 
 unsigned int INVERTER_RUNNINGSTATE;
@@ -173,7 +180,7 @@ bool BATTERYSAVE = false;
 #define SOFAR_FN_AUTO		0x0103
 
 #define SOFAR2_REG_RUNSTATE  0x0404
-#define SOFAR2_REG_GRIDV   0x0480
+#define SOFAR2_REG_GRIDV   0x048D
 #define SOFAR2_REG_GRIDFREQ  0x0484
 #define SOFAR2_REG_BATTW   0x0606
 #define SOFAR2_REG_BATTV   0x0604
@@ -181,6 +188,7 @@ bool BATTERYSAVE = false;
 #define SOFAR2_REG_BATTSOC 0x0608
 #define SOFAR2_REG_BATTTEMP  0x0607
 #define SOFAR2_REG_ACTW   0x0485
+#define SOFAR2_REG_EXPW  0x0488
 #define SOFAR2_REG_EXTW   0x04AE
 #define SOFAR2_REG_LOADW   0x04AF
 #define SOFAR2_REG_PVW   0x05C4
@@ -274,7 +282,8 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYDV2, SOFAR2_REG_BATTSOC, "batterySOC", NOCALC },
   { HYDV2, SOFAR2_REG_BATTTEMP, "battery_temp", NOCALC },
   { HYDV2, SOFAR2_REG_ACTW, "grid_power", MUL10 },
-  { HYDV2, SOFAR2_REG_EXTW, "ext_power", MUL10 },
+  { HYDV2, SOFAR2_REG_EXPW, "import_power", MUL10},
+  { HYDV2, SOFAR2_REG_EXTW, "external_power", MUL10 },
   { HYDV2, SOFAR2_REG_LOADW, "consumption", MUL10 },
   { HYDV2, SOFAR2_REG_PVW, "solarPV", MUL100 },
   { HYDV2, SOFAR2_REG_PVDAY, "today_generation", DIV100 },
@@ -882,11 +891,19 @@ void mqttReconnect()
 */
 void flushRS485()
 {
-  RS485Serial.flush();
-  delay(200);
+  if (tftModel) {
+    Serial.flush();
+    delay(200);
 
-  while (RS485Serial.available())
-    RS485Serial.read();
+    while (Serial.available())
+      Serial.read();
+  } else {
+    RS485Serial.flush();
+    delay(200);
+
+    while (RS485Serial.available())
+      RS485Serial.read();
+  }
 }
 
 int sendModbus(uint8_t frame[], byte frameSize, modbusResponse *resp)
@@ -898,7 +915,13 @@ int sendModbus(uint8_t frame[], byte frameSize, modbusResponse *resp)
   flushRS485();
 
   //Send
-  RS485Serial.write(frame, frameSize);
+  if (tftModel) {
+    Serial.write(frame, frameSize);
+  } else {
+    digitalWrite(SERIAL_COMMUNICATION_CONTROL_PIN, RS485_TX);
+    RS485Serial.write(frame, frameSize);
+    digitalWrite(SERIAL_COMMUNICATION_CONTROL_PIN, RS485_RX);
+  }
 
   return listen(resp);
 }
@@ -924,15 +947,24 @@ int listen(modbusResponse *resp)
   {
     int tries = 0;
 
-    while ((!RS485Serial.available()) && (tries++ < RS485_TRIES))
-      delay(50);
+    if (tftModel) {
+      while ((!Serial.available()) && (tries++ < RS485_TRIES))
+        delay(50);
+    } else {
+      while ((!RS485Serial.available()) && (tries++ < RS485_TRIES))
+        delay(50);
+    }
 
     if (tries >= RS485_TRIES)
     {
       break;
     }
 
-    inFrame[inByteNum] = RS485Serial.read();
+    if (tftModel) {
+      inFrame[inByteNum] = Serial.read();
+    } else {
+      inFrame[inByteNum] = RS485Serial.read();
+    }
 
     //Process the byte
     switch (inByteNum)
@@ -1539,7 +1571,13 @@ void setup()
     updateOLED(deviceName, "starting", "WiFi..", version);
   }
 
-  RS485Serial.begin(9600);
+  if (tftModel) {
+    Serial.begin(9600);
+  } else {
+    pinMode(SERIAL_COMMUNICATION_CONTROL_PIN, OUTPUT);
+    digitalWrite(SERIAL_COMMUNICATION_CONTROL_PIN, RS485_RX);
+    RS485Serial.begin(9600);
+  }
   delay(500);
   setup_wifi(); //set wifi and get settings, so first thing to do
 
