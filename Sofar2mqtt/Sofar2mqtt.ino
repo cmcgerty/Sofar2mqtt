@@ -1,10 +1,14 @@
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.20-alpha11";
+const char* version = "v3.20-alpha12";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
 bool calculated = true; //default to pre-calculated values before sending to mqtt
+
+unsigned int screenDimTimer = 30; //dim screen after 30 secs
+unsigned long lastScreenTouch = 0;
+
 
 #include <DoubleResetDetect.h>
 #define DRD_TIMEOUT 0.1
@@ -233,7 +237,7 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { ME3000, SOFAR_REG_BATTW, "battery_power", MUL10 },
   { ME3000, SOFAR_REG_BATTV, "battery_voltage", DIV10 },
   { ME3000, SOFAR_REG_BATTA, "battery_current", DIV100 },
-  { ME3000, SOFAR_REG_SYSIOW, "systemIO_power", MUL10 },
+  { ME3000, SOFAR_REG_SYSIOW, "inverter_power", MUL10 },
   { ME3000, SOFAR_REG_BATTSOC, "batterySOC", NOCALC },
   { ME3000, SOFAR_REG_BATTTEMP, "battery_temp", NOCALC },
   { ME3000, SOFAR_REG_BATTCYC, "battery_cycles", NOCALC },
@@ -256,7 +260,7 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYBRID, SOFAR_REG_BATTW, "battery_power", MUL10 },
   { HYBRID, SOFAR_REG_BATTV, "battery_voltage", DIV10 },
   { HYBRID, SOFAR_REG_BATTA, "battery_current", DIV100 },
-  { HYBRID, SOFAR_REG_SYSIOW, "systemIO_power", MUL10 },
+  { HYBRID, SOFAR_REG_SYSIOW, "inverter_power", MUL10 },
   { HYBRID, SOFAR_REG_BATTSOC, "batterySOC", NOCALC },
   { HYBRID, SOFAR_REG_BATTTEMP, "battery_temp", NOCALC },
   { HYBRID, SOFAR_REG_BATTCYC, "battery_cycles", NOCALC },
@@ -281,9 +285,8 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYDV2, SOFAR2_REG_BATTA, "battery_current", DIV100 },
   { HYDV2, SOFAR2_REG_BATTSOC, "batterySOC", NOCALC },
   { HYDV2, SOFAR2_REG_BATTTEMP, "battery_temp", NOCALC },
-  { HYDV2, SOFAR2_REG_ACTW, "grid_power", MUL10 },
-  { HYDV2, SOFAR2_REG_EXPW, "import_power", MUL10},
-  { HYDV2, SOFAR2_REG_EXTW, "external_power", MUL10 },
+  { HYDV2, SOFAR2_REG_ACTW, "inverter_power", MUL10 },
+  { HYDV2, SOFAR2_REG_EXPW, "grid_power", MUL10},
   { HYDV2, SOFAR2_REG_LOADW, "consumption", MUL10 },
   { HYDV2, SOFAR2_REG_PVW, "solarPV", MUL100 },
   { HYDV2, SOFAR2_REG_PVDAY, "today_generation", DIV100 },
@@ -334,6 +337,12 @@ bool modbusError = true;
 #define TFT_LED   D8
 // initialize ILI9341 TFT library
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
+
+//for touch
+#include <XPT2046_Touchscreen.h>
+#define TCS_PIN  0
+#define TIRQ_PIN  2
+XPT2046_Touchscreen ts(TCS_PIN, TIRQ_PIN);
 
 //for the oled
 #include <Adafruit_GFX.h>
@@ -485,6 +494,7 @@ void saveToEeprom() {
   EEPROM.write(199, inverterModel); // * 199
   EEPROM.write(200, tftModel); // * 200
   EEPROM.write(201, calculated); // * 201
+  EEPROM.write(202, screenDimTimer); // * 202
   EEPROM.commit();
   ESP.reset(); // reset after save to activate new settings
 }
@@ -510,6 +520,7 @@ bool loadFromEeprom() {
     if (EEPROM.read(200)) tftModel = true;
     calculated = false;
     if (EEPROM.read(201)) calculated = true;
+    screenDimTimer = EEPROM.read(202);
     WiFi.hostname(deviceName);
     return true;
   }
@@ -1411,6 +1422,8 @@ void handleJsonSettings()
   jsonsettingsstring += "\"tftModel\": \"" + String(tftModel) + "\"";
   jsonsettingsstring += ",";
   jsonsettingsstring += "\"calculated\": \"" + String(calculated) + "\"";
+  jsonsettingsstring += ",";
+  jsonsettingsstring += "\"screendimtimer\": \"" + String(screenDimTimer) + "\"";
   jsonsettingsstring += "}";
 
   httpServer.send(200, "application/json", jsonsettingsstring);
@@ -1483,7 +1496,13 @@ void handleCommand() {
         calculated = false;
       }
       saveEeprom = true;
+    } else if (httpServer.argName(i) == "screendimtimer") {
+      String value =  httpServer.arg(i);
+      message += "Setting screen dim timer to: " + value + "<br>";
+      screenDimTimer = value.toInt();
+      saveEeprom = true;
     }
+
   }
 
   if (saveEeprom) {
@@ -1561,8 +1580,10 @@ void setup()
     tft.fillScreen(ILI9341_BLACK);
     tft.setScrollMargins(1, 10);
     tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK); // White on black
-
     tft.println("Sofar2mqtt starting...");
+    ts.begin();
+    ts.setRotation(1);
+
   } else {
     //Turn on the OLED
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize OLED with the I2C addr 0x3C (for the 64x48)
@@ -1607,7 +1628,6 @@ void setup()
   httpServer.on("/jsonsettings", handleJsonSettings);
   httpServer.on("/command", handleCommand);
 
-  //Wake up the inverter and put it in auto mode to begin with.
   if (tftModel) {
     tft.fillScreen(ILI9341_BLACK);
     drawBitmap(0, 0, background, 240, 320, ILI9341_WHITE);
@@ -1615,13 +1635,31 @@ void setup()
   }
   heartbeat();
   mqttReconnect();
-  if (!modbusError) sendPassiveCmd(SOFAR_SLAVE_ID, SOFAR_FN_AUTO, 0, "startup_auto");
+}
+
+int brightness = 32;
+void tsLoop() {
+  if (ts.tirqTouched()) {
+    if (ts.touched()) {
+      brightness == 32 ? brightness = 0 : brightness = 32;
+      analogWrite(TFT_LED, brightness);
+      lastScreenTouch = millis();
+      delay(100);
+    }
+  }
+  if ((screenDimTimer > 0) && (brightness > 0) && ((unsigned long)(millis() - lastScreenTouch) > (1000 * screenDimTimer))) {
+    brightness--;
+    analogWrite(TFT_LED, brightness);
+    delay(50);
+  }
+
 }
 
 void loopRuns() {
   ArduinoOTA.handle();
   httpServer.handleClient();
   MDNS.update();
+  tsLoop();
 }
 
 void loop()

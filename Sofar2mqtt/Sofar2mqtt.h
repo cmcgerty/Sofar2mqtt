@@ -665,7 +665,7 @@ const char index_html[] PROGMEM = R"=====(
 </head>
 <body>
   <header>
-    <h1>Sofar2MQTT - 3.2-alpha11</h1>
+    <h1>Sofar2MQTT - 3.2-alpha12</h1>
   </header>
   <div class="container">
     <p><span class="label">Uptime:</span><span class="value" id="uptime"></span></p>
@@ -837,6 +837,7 @@ const char settings_html[] PROGMEM = R"=====(
         <input style='display: inline-block;' type='radio' id='CALCULATED' name='calculated' value='true'>
         <label for='CALCULATED'>Calculated data</label>
       </span><br>
+      <span class="label">Screen dim timer:</span><span class="value"><input type="text" id="screendimtimer" name="screendimtimer"></span><br>
       <button type="submit" id="save-btn">Save & reboot</button>
       <button id="home-btn">Go back</button>
     </form>
@@ -872,6 +873,7 @@ const char settings_html[] PROGMEM = R"=====(
             $("#CALCULATED").prop("checked",true);
           } 
         }
+        $("#screendimtimer").val(data.screendimtimer);
       });
     }
 
