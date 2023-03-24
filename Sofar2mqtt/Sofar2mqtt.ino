@@ -1,6 +1,6 @@
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.20-alpha12";
+const char* version = "v3.20-alpha13";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -611,8 +611,8 @@ void setup_wifi()
   } else {
     document.getElementById("RAW").checked = true  
   }
-  document.querySelector("[for='key_custom_lcd']").hidden = true;
-  document.getElementById('key_custom_lcd').hidden = true;
+  document.querySelector("[for='key_custom_mode']").hidden = true;
+  document.getElementById('key_custom_mode').hidden = true;
   </script>
   )";
   WiFiManagerParameter custom_html_inputs(bufferStr);
@@ -726,7 +726,7 @@ void addStateInfo(String &state, unsigned int index)
       tft.setCursor(105, 70);
       tft.setTextSize(2);
       tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
-      tft.println(stringVal + "%");
+      tft.println(stringVal + "%  ");
     }
   }
 }
@@ -1632,19 +1632,26 @@ void setup()
     tft.fillScreen(ILI9341_BLACK);
     drawBitmap(0, 0, background, 240, 320, ILI9341_WHITE);
     printScreen("Started");
+    tft.fillCircle(20, 290, 10, ILI9341_RED); //turn modbus icon to red first
   }
   heartbeat();
   mqttReconnect();
 }
 
 int brightness = 32;
+bool touchedBefore = false;
 void tsLoop() {
   if (ts.tirqTouched()) {
-    if (ts.touched()) {
-      brightness == 32 ? brightness = 0 : brightness = 32;
-      analogWrite(TFT_LED, brightness);
-      lastScreenTouch = millis();
-      delay(100);
+    if (ts.touched()) { //this will run update() and therefore reset the tirqTouched flag if touch is released
+      if (!touchedBefore) {
+        touchedBefore = true;
+        brightness == 32 ? brightness = 0 : brightness = 32;
+        analogWrite(TFT_LED, brightness);
+        lastScreenTouch = millis();
+        delay(100);
+      }
+    } else {
+      touchedBefore = false;
     }
   }
   if ((screenDimTimer > 0) && (brightness > 0) && ((unsigned long)(millis() - lastScreenTouch) > (1000 * screenDimTimer))) {
