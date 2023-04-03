@@ -5,8 +5,8 @@ Supported models:
 
 ME3000SP - Full support  
 HYD-xx00-ES - Full support
-
-![Sofar2MQTT](pics/Sofar2MQTT.jpg)
+HYD-xx00-EP - Full support
+HYD-xx00-KTL - Full support
 
 Sofar2mqtt is a remote control interface for Sofar solar and battery inverters.
 It allows remote control of the inverter and reports the invertor status, power usage, battery state etc for integration with smart home systems such as [Home Assistant](https://www.home-assistant.io/) and [Node-Red](https://nodered.org/).  
@@ -16,7 +16,7 @@ Designed to work with TTL modules with or without the DR and RE flow control pin
 
 Subscribe your MQTT client to:
 
-Sofar2mqtt/state
+Sofar2mqtt/state (where Sofar2mqtt matches the hostname you configured in settings)
 
 Which provides:
 
@@ -55,8 +55,15 @@ battery_save is a hybrid auto mode that will charge from excess solar but not di
 Major version 2.0 rewrite by Adam Hill sidepipeukatgmaildotcom
 Thanks to Rich Platts for hybrid model code and testing.  
 calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
+Version 3.x rewrite by Igor Ybema to work on his module with TFT screen and to add more inverter types
 
-# How To Build
+# How to get a pre-made module
+
+Just go ahead to this [Tindie] (https://www.tindie.com/products/thehognl/esp12-f-with-rs485-modbus-and-optional-touch-tft/) store to get a pre-made module with this software.
+
+# How To Build your own module
+
+If you want to build your own module you should follow the rest of this readme.
 
 Parts List:
 1. ESP8266 Microcontroller
@@ -96,18 +103,18 @@ Here's how it looks when completed.
 
 # Flashing
 
-Edit the file Sofar2mqtt.ino and remove the // at the start of the second OR third line as appropriate for your inverter model (ME3000SP or a Hybrid HYD model).
-
-Add your wifi network name and password and your mqtt server details in the section below. If you need more than one Sofar2mqtt on your network, make sure you give them unique device names.  
-
-You'll need the libraries for the ESP8266. Follow [this guide](https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/) if you haven't completed that step before.
+Easiest to get started is to flash a pre-compiled binary. Get a [regular ESP flasher] (https://github.com/esphome/esphome-flasher/releases), attach a module on your computer and  flash a [binary] (https://github.com/IgorYbema/Sofar2mqtt/tree/mod/binaries) to the module.
+If you want to compile your own version you'll need the libraries for the ESP8266. Follow [this guide](https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/) if you haven't completed that step before.
 
 Add a few more libraries using the Manage Libraries menu:
 1. PubSubClient
 2. Adafruit GFX
 3. Adafruit SSD1306 Wemos Mini OLED
+4. DoubleResetDetect
+5. Adafruit_ILI9341
+6. XPT2046_Touchscreen
 
-(Even if you are not using the OLED screen, you should install the Adafruit libraries or it will not compile.)
+(Even if you are not using the OLED or TFT screen, you should install the libraries or it will not compile.)
 
 ...and upload.
 
@@ -117,13 +124,13 @@ The OLED screen should show "Online" to indicate a connection to WiFi and MQTT. 
 # Connect to Inverter
 
 Connect the Sofar2mqtt unit to a 5v micro USB power supply.
-Now connect wires A and B to the two wire RS485 input of your inverter, which is marked as 485s on the image of the ME3000SP below.
+Now connect wires A and B to the two wire RS485 input of your inverter, which is marked as 485s on the image of the inverter below.
 
 ![ME3000SP Data Connections](pics/485s.jpg)
 
 # Troubleshooting
 
-Nothing on the OLED screen? Make sure you solder all the pins on the OLED and ESP8266, not just those with wires attached.  
+Nothing on the OLED or TFT screen? Make sure you solder all the pins on the OLED and ESP8266, not just those with wires attached.  
 No communication with the inverter? Make sure the slave IDs match. Sofar2mqtt assumes slave ID 1 by default. You can change this around line 93 or in the inverter user interface. But they must be the same.   
 
 Here's what the various things on the OLED screen tell you:

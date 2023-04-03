@@ -665,7 +665,7 @@ const char index_html[] PROGMEM = R"=====(
 </head>
 <body>
   <header>
-    <h1>Sofar2MQTT - 3.2-alpha14</h1>
+    <h1>Sofar2MQTT - 3.2</h1>
   </header>
   <div class="container">
     <p><span class="label">Uptime:</span><span class="value" id="uptime"></span></p>
