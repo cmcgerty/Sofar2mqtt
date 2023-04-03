@@ -4,9 +4,9 @@
 Supported models:  
 
 ME3000SP - Full support  
-HYD-xx00-ES - Full support
-HYD-xx00-EP - Full support
-HYD-xx00-KTL - Full support
+HYD-xx00-ES - Full support  
+HYD-xx00-EP - Full support  
+HYD-xx00-KTL - Full support  
 
 Sofar2mqtt is a remote control interface for Sofar solar and battery inverters.
 It allows remote control of the inverter and reports the invertor status, power usage, battery state etc for integration with smart home systems such as [Home Assistant](https://www.home-assistant.io/) and [Node-Red](https://nodered.org/).  
@@ -54,12 +54,12 @@ battery_save is a hybrid auto mode that will charge from excess solar but not di
 (c)Colin McGerty 2021 colin@mcgerty.co.uk
 Major version 2.0 rewrite by Adam Hill sidepipeukatgmaildotcom
 Thanks to Rich Platts for hybrid model code and testing.  
-calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com
+calcCRC by angelo.compagnucci@gmail.com and jpmzometa@gmail.com  
 Version 3.x rewrite by Igor Ybema to work on his module with TFT screen and to add more inverter types
 
 # How to get a pre-made module
 
-Just go ahead to this [Tindie] (https://www.tindie.com/products/thehognl/esp12-f-with-rs485-modbus-and-optional-touch-tft/) store to get a pre-made module with this software.
+Just go ahead to this [Tindie](https://www.tindie.com/products/thehognl/esp12-f-with-rs485-modbus-and-optional-touch-tft/) store to get a pre-made module with this software.
 
 # How To Build your own module
 
@@ -103,7 +103,7 @@ Here's how it looks when completed.
 
 # Flashing
 
-Easiest to get started is to flash a pre-compiled binary. Get a [regular ESP flasher] (https://github.com/esphome/esphome-flasher/releases), attach a module on your computer and  flash a [binary] (https://github.com/IgorYbema/Sofar2mqtt/tree/mod/binaries) to the module.
+Easiest to get started is to flash a pre-compiled binary. Get a [regular ESP flasher](https://github.com/esphome/esphome-flasher/releases), attach a module on your computer and  flash a [binary](https://github.com/IgorYbema/Sofar2mqtt/tree/mod/binaries) to the module.
 If you want to compile your own version you'll need the libraries for the ESP8266. Follow [this guide](https://randomnerdtutorials.com/how-to-install-esp8266-board-arduino-ide/) if you haven't completed that step before.
 
 Add a few more libraries using the Manage Libraries menu:
