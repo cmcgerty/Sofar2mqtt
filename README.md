@@ -63,7 +63,7 @@ Just go ahead to this [Tindie](https://www.tindie.com/products/thehognl/esp12-f-
 
 # How To Build your own module
 
-If you want to build your own module you should follow (this readme)[MODULE.md]
+If you want to build your own module you should follow [this readme](MODULE.md)
 
 # Flashing
 
