@@ -1,6 +1,6 @@
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.20-alpha13";
+const char* version = "v3.20-alpha14";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -18,7 +18,7 @@ DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 #include <WiFiManager.h>
 #include <EEPROM.h>
-#define WIFI_TIMEOUT 30000
+#define WIFI_TIMEOUT 300
 
 // * To be filled with EEPROM data
 char deviceName[64] = "Sofar";
@@ -651,7 +651,6 @@ void setup_wifi()
     }
     // * Reset and try again, or maybe put it to deep sleep
     ESP.reset();
-    delay(WIFI_TIMEOUT);
   }
 
   // * Read updated parameters
