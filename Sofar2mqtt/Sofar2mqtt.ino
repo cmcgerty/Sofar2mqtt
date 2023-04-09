@@ -1,6 +1,6 @@
 
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.2";
+const char* version = "v3.3-alpha1";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -169,8 +169,14 @@ bool BATTERYSAVE = false;
 #define SOFAR_REG_EXPDAY	0x0219
 #define SOFAR_REG_IMPDAY	0x021a
 #define SOFAR_REG_LOADDAY	0x021b
+#define SOFAR_REG_PVTOTAL   0x021c
+#define SOFAR_REG_EXPTOTAL  0x021e
+#define SOFAR_REG_IMPTOTAL  0x0220
+#define SOFAR_REG_LOADTOTAL 0x0222
 #define SOFAR_REG_CHARGDAY  0x0224
 #define SOFAR_REG_DISCHDAY  0x0225
+#define SOFAR_REG_CHARGTOTAL  0x0226
+#define SOFAR_REG_DISCHTOTAL  0x0228
 #define SOFAR_REG_BATTCYC	0x022c
 #define SOFAR_REG_PVA		0x0236
 #define SOFAR_REG_INTTEMP	0x0238
@@ -202,6 +208,12 @@ bool BATTERYSAVE = false;
 #define SOFAR2_REG_LOADDAY 0x0689
 #define SOFAR2_REG_CHARGDAY  0x0695
 #define SOFAR2_REG_DISCHDAY  0x0699
+#define SOFAR2_REG_PVTOTAL   0x0687
+#define SOFAR2_REG_EXPTOTAL  0x0693
+#define SOFAR2_REG_IMPTOTAL  0x068F
+#define SOFAR2_REG_LOADTOTAL 0x068B
+#define SOFAR2_REG_CHARGTOTAL  0x0697
+#define SOFAR2_REG_DISCHTOTAL  0x069B
 #define SOFAR2_REG_BATTCYC 0x060A
 #define SOFAR2_REG_INTTEMP 0x0418
 #define SOFAR2_REG_HSTEMP  0x041A
@@ -213,9 +225,9 @@ bool BATTERYSAVE = false;
 #define SOFAR2_REG_PV2   0x0589
 
 #define SOFAR2_REG_STORAGEMODE  0x4368
-#define SOFAR2_REG_PASSIVECONTROL 0x1187 //in decimal 4487-4492, write 3x 32bit values with first 32bit = 0x0000 and next two are same (actually low=high limit) for the value of passive control
+#define SOFAR2_REG_PASSIVECONTROL 0x1187 //in decimal 4487-4492, write 3x 32BIT values with first 32BIT = 0x0000 and next two are same (actually low=high limit) for the value of passive control
 
-enum calculatorT {NOCALC, DIV10, DIV100, MUL10, MUL100};
+enum calculatorT {NOCALC, DIV10, DIV100, MUL10, MUL100, BIT32};
 enum inverterModelT {ME3000, HYBRID, HYDV2};
 inverterModelT inverterModel = ME3000; //default to ME3000
 
@@ -248,8 +260,14 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { ME3000, SOFAR_REG_IMPDAY, "today_purchase", DIV100 },
   { ME3000, SOFAR_REG_PVDAY, "today_generation", DIV100 },
   { ME3000, SOFAR_REG_LOADDAY, "today_consumption", DIV100 },
+  { ME3000, SOFAR_REG_EXPTOTAL, "total_exported", BIT32 },
+  { ME3000, SOFAR_REG_IMPTOTAL, "total_purchase", BIT32 },
+  { ME3000, SOFAR_REG_PVTOTAL, "total_generation", BIT32 },
+  { ME3000, SOFAR_REG_LOADTOTAL, "total_consumption", BIT32 },
   { ME3000, SOFAR_REG_CHARGDAY, "today_charged", DIV100 },
   { ME3000, SOFAR_REG_DISCHDAY, "today_discharged", DIV100 },
+  { ME3000, SOFAR_REG_CHARGTOTAL, "total_charged", BIT32 },
+  { ME3000, SOFAR_REG_DISCHTOTAL, "total_discharged", BIT32 },
   { ME3000, SOFAR_REG_INTTEMP, "inverter_temp", NOCALC },
   { ME3000, SOFAR_REG_HSTEMP, "inverter_HStemp", NOCALC },
   { HYBRID, SOFAR_REG_RUNSTATE, "running_state", NOCALC },
@@ -275,6 +293,12 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYBRID, SOFAR_REG_IMPDAY, "today_purchase", DIV100 },
   { HYBRID, SOFAR_REG_CHARGDAY, "today_charged", DIV100 },
   { HYBRID, SOFAR_REG_DISCHDAY, "today_discharged", DIV100 },
+  { HYBRID, SOFAR_REG_PVTOTAL, "total_generation", BIT32 },
+  { HYBRID, SOFAR_REG_LOADTOTAL, "total_consumption", BIT32 },
+  { HYBRID, SOFAR_REG_EXPTOTAL, "total_exported", BIT32 },
+  { HYBRID, SOFAR_REG_IMPTOTAL, "total_purchase", BIT32 },
+  { HYBRID, SOFAR_REG_CHARGTOTAL, "total_charged", BIT32 },
+  { HYBRID, SOFAR_REG_DISCHTOTAL, "total_discharged", BIT32 },
   { HYBRID, SOFAR_REG_INTTEMP, "inverter_temp", NOCALC },
   { HYBRID, SOFAR_REG_HSTEMP, "inverter_HStemp", NOCALC },
   { HYDV2, SOFAR2_REG_RUNSTATE, "running_state", NOCALC },
@@ -295,6 +319,12 @@ static struct mqtt_status_register  mqtt_status_reads[] =
   { HYDV2, SOFAR2_REG_LOADDAY, "today_consumption", DIV100 },
   { HYDV2, SOFAR2_REG_CHARGDAY, "today_charged", DIV100 },
   { HYDV2, SOFAR2_REG_DISCHDAY, "today_discharged", DIV100 },
+  { HYDV2, SOFAR2_REG_PVTOTAL, "total_generation", DIV10 },
+  { HYDV2, SOFAR2_REG_EXPTOTAL, "total_exported", DIV10 },
+  { HYDV2, SOFAR2_REG_IMPTOTAL, "total_purchase", DIV10 },
+  { HYDV2, SOFAR2_REG_LOADTOTAL, "total_consumption", DIV10 },
+  { HYDV2, SOFAR2_REG_CHARGTOTAL, "total_charged", DIV10 },
+  { HYDV2, SOFAR2_REG_DISCHTOTAL, "total_discharged", DIV10 },
   { HYDV2, SOFAR2_REG_BATTCYC, "battery_cycles", NOCALC },
   { HYDV2, SOFAR2_REG_INTTEMP, "inverter_temp", NOCALC },
   { HYDV2, SOFAR2_REG_HSTEMP, "inverter_HStemp", NOCALC},
@@ -682,38 +712,51 @@ void addStateInfo(String &state, unsigned int index)
   modbusResponse	rs;
 
   if (readSingleReg(SOFAR_SLAVE_ID, mqtt_status_reads[index].regnum, &rs) == 0) {
+
     String stringVal;
-    if (calculated) {
+
+    if (mqtt_status_reads[index].calculator == BIT32) {
+      int32_t  val32bit;
       int16_t  val;
       val = (int16_t)((rs.data[0] << 8) | rs.data[1]);
-
-      switch (mqtt_status_reads[index].calculator) {
-        case DIV10: {
-            stringVal = String((float)val / 10.0);
-            break;
-          }
-        case DIV100: {
-            stringVal = String((float)val / 100.0);
-            break;
-          }
-        case MUL10: {
-            stringVal = String(val * 10);
-            break;
-          }
-        case MUL100: {
-            stringVal = String(val * 100);
-            break;
-          }
-        default: {
-            stringVal = String(val);
-            break;
-          }
-      }
-
+      val32bit = val * 65535;
+      readSingleReg(SOFAR_SLAVE_ID, mqtt_status_reads[index].regnum + 1, &rs);
+      val = (int16_t)((rs.data[0] << 8) | rs.data[1]);
+      val32bit += val;
+      stringVal = String(val32bit);
     } else {
-      unsigned int  val;
-      val = ((rs.data[0] << 8) | rs.data[1]);
-      stringVal = String(val);
+      if (calculated) {
+        int16_t  val;
+        val = (int16_t)((rs.data[0] << 8) | rs.data[1]);
+
+        switch (mqtt_status_reads[index].calculator) {
+          case DIV10: {
+              stringVal = String((float)val / 10.0);
+              break;
+            }
+          case DIV100: {
+              stringVal = String((float)val / 100.0);
+              break;
+            }
+          case MUL10: {
+              stringVal = String(val * 10);
+              break;
+            }
+          case MUL100: {
+              stringVal = String(val * 100);
+              break;
+            }
+          default: {
+              stringVal = String(val);
+              break;
+            }
+        }
+
+      } else {
+        unsigned int  val;
+        val = ((rs.data[0] << 8) | rs.data[1]);
+        stringVal = String(val);
+      }
     }
 
     if (!( state == "{"))
