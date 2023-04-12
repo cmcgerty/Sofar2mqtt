@@ -1,6 +1,5 @@
-
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.3-alpha1";
+const char* version = "v3.3-alpha2";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -142,16 +141,32 @@ SoftwareSerial RS485Serial(OLEDRXPin, OLEDTXPin);
 
 unsigned int INVERTER_RUNNINGSTATE;
 
-#define MAX_FRAME_SIZE          64
-#define MODBUS_FN_READSINGLEREG 0x03
+#define MAX_FRAME_SIZE          224
+#define MODBUS_FN_READHOLDINGREG 0x03
 #define MODBUS_FN_WRITEMULREG 0x10
 #define SOFAR_FN_PASSIVEMODE    0x42
 #define SOFAR_PARAM_STANDBY     0x5555
 
 // Battery Save mode is a hybrid mode where the battery will charge from excess solar but not discharge.
 bool BATTERYSAVE = false;
+// Peakshaving will allow the inverter to charge or discharge the battery depending on a limited export or import power value, everything above will be go to or from battery
+bool PEAKSHAVING = false;
+
+// This is the return object for the sendModbus() function. Since we are a modbus master, we
+// are primarily interested in the responses to our commands.
+struct modbusResponse
+{
+  uint8_t errorLevel;
+  uint8_t data[MAX_FRAME_SIZE];
+  uint8_t dataSize;
+  char* errorMessage;
+};
+
+bool modbusError = true;
 
 // SoFar Information Registers
+#define SOFAR_START 0x0200
+#define SOFAR_END 0x0255
 #define SOFAR_REG_RUNSTATE	0x0200
 #define SOFAR_REG_GRIDV		0x0206
 #define SOFAR_REG_GRIDA		0x0207
@@ -189,45 +204,48 @@ bool BATTERYSAVE = false;
 #define SOFAR_FN_CHARGE		0x0102
 #define SOFAR_FN_AUTO		0x0103
 
+#define SOFAR2_START 0x0400
+#define SOFAR2_END 0x06A0
 #define SOFAR2_REG_RUNSTATE  0x0404
-#define SOFAR2_REG_GRIDV   0x048D
+#define SOFAR2_REG_INTTEMP 0x0418
+#define SOFAR2_REG_HSTEMP  0x041A
 #define SOFAR2_REG_GRIDFREQ  0x0484
-#define SOFAR2_REG_BATTW   0x0606
-#define SOFAR2_REG_BATTV   0x0604
-#define SOFAR2_REG_BATTA   0x0605
-#define SOFAR2_REG_BATTSOC 0x0608
-#define SOFAR2_REG_BATTTEMP  0x0607
 #define SOFAR2_REG_ACTW   0x0485
+#define SOFAR2_REG_GRIDV   0x048D
 #define SOFAR2_REG_EXPW  0x0488
 #define SOFAR2_REG_EXTW   0x04AE
 #define SOFAR2_REG_LOADW   0x04AF
-#define SOFAR2_REG_PVW   0x05C4
-#define SOFAR2_REG_PVDAY   0x0685
-#define SOFAR2_REG_EXPDAY  0x0691
-#define SOFAR2_REG_IMPDAY  0x068D
-#define SOFAR2_REG_LOADDAY 0x0689
-#define SOFAR2_REG_CHARGDAY  0x0695
-#define SOFAR2_REG_DISCHDAY  0x0699
-#define SOFAR2_REG_PVTOTAL   0x0687
-#define SOFAR2_REG_EXPTOTAL  0x0693
-#define SOFAR2_REG_IMPTOTAL  0x068F
-#define SOFAR2_REG_LOADTOTAL 0x068B
-#define SOFAR2_REG_CHARGTOTAL  0x0697
-#define SOFAR2_REG_DISCHTOTAL  0x069B
-#define SOFAR2_REG_BATTCYC 0x060A
-#define SOFAR2_REG_INTTEMP 0x0418
-#define SOFAR2_REG_HSTEMP  0x041A
 #define SOFAR2_REG_VPV1   0x0584
 #define SOFAR2_REG_APV1   0x0585
 #define SOFAR2_REG_PV1   0x0586
 #define SOFAR2_REG_VPV2   0x0587
 #define SOFAR2_REG_APV2   0x0588
 #define SOFAR2_REG_PV2   0x0589
+#define SOFAR2_REG_PVW   0x05C4
+#define SOFAR2_REG_BATTV   0x0604
+#define SOFAR2_REG_BATTA   0x0605
+#define SOFAR2_REG_BATTW   0x0606
+#define SOFAR2_REG_BATTTEMP  0x0607
+#define SOFAR2_REG_BATTSOC 0x0608
+#define SOFAR2_REG_BATTCYC 0x060A
+#define SOFAR2_REG_PVDAY   0x0685
+#define SOFAR2_REG_PVTOTAL   0x0687
+#define SOFAR2_REG_LOADDAY 0x0689
+#define SOFAR2_REG_LOADTOTAL 0x068B
+#define SOFAR2_REG_IMPDAY  0x068D
+#define SOFAR2_REG_IMPTOTAL  0x068F
+#define SOFAR2_REG_EXPDAY  0x0691
+#define SOFAR2_REG_EXPTOTAL  0x0693
+#define SOFAR2_REG_CHARGDAY  0x0695
+#define SOFAR2_REG_CHARGTOTAL  0x0697
+#define SOFAR2_REG_DISCHDAY  0x0699
+#define SOFAR2_REG_DISCHTOTAL  0x069B
 
 #define SOFAR2_REG_STORAGEMODE  0x4368
 #define SOFAR2_REG_PASSIVECONTROL 0x1187 //in decimal 4487-4492, write 3x 32BIT values with first 32BIT = 0x0000 and next two are same (actually low=high limit) for the value of passive control
 
-enum calculatorT {NOCALC, DIV10, DIV100, MUL10, MUL100, BIT32};
+enum calculatorT {NOCALC, DIV10, DIV100, MUL10, MUL100, COMBINE};
+enum valueTypeT {U16, S16, U32, S32, FLOAT};
 enum inverterModelT {ME3000, HYBRID, HYDV2};
 inverterModelT inverterModel = ME3000; //default to ME3000
 
@@ -236,123 +254,114 @@ struct mqtt_status_register
   inverterModelT inverter;
   uint16_t regnum;
   String    mqtt_name;
+  valueTypeT valueType;
   calculatorT calculator;
 };
 
 static struct mqtt_status_register  mqtt_status_reads[] =
 {
-  { ME3000, SOFAR_REG_RUNSTATE, "running_state", NOCALC},
-  { ME3000, SOFAR_REG_GRIDV, "grid_voltage", DIV10},
-  { ME3000, SOFAR_REG_GRIDA, "grid_current", DIV100},
-  { ME3000, SOFAR_REG_GRIDFREQ, "grid_freq", DIV100 },
-  { ME3000, SOFAR_REG_GRIDW, "grid_power", MUL10 },
-  { ME3000, SOFAR_REG_BATTW, "battery_power", MUL10 },
-  { ME3000, SOFAR_REG_BATTV, "battery_voltage", DIV10 },
-  { ME3000, SOFAR_REG_BATTA, "battery_current", DIV100 },
-  { ME3000, SOFAR_REG_SYSIOW, "inverter_power", MUL10 },
-  { ME3000, SOFAR_REG_BATTSOC, "batterySOC", NOCALC },
-  { ME3000, SOFAR_REG_BATTTEMP, "battery_temp", NOCALC },
-  { ME3000, SOFAR_REG_BATTCYC, "battery_cycles", NOCALC },
-  { ME3000, SOFAR_REG_LOADW, "consumption", MUL10},
-  { ME3000, SOFAR_REG_PVW, "solarPV", MUL10 },
-  { ME3000, SOFAR_REG_PVA, "solarPVAmps", NOCALC },
-  { ME3000, SOFAR_REG_EXPDAY, "today_exported", DIV100 },
-  { ME3000, SOFAR_REG_IMPDAY, "today_purchase", DIV100 },
-  { ME3000, SOFAR_REG_PVDAY, "today_generation", DIV100 },
-  { ME3000, SOFAR_REG_LOADDAY, "today_consumption", DIV100 },
-  { ME3000, SOFAR_REG_EXPTOTAL, "total_exported", BIT32 },
-  { ME3000, SOFAR_REG_IMPTOTAL, "total_purchase", BIT32 },
-  { ME3000, SOFAR_REG_PVTOTAL, "total_generation", BIT32 },
-  { ME3000, SOFAR_REG_LOADTOTAL, "total_consumption", BIT32 },
-  { ME3000, SOFAR_REG_CHARGDAY, "today_charged", DIV100 },
-  { ME3000, SOFAR_REG_DISCHDAY, "today_discharged", DIV100 },
-  { ME3000, SOFAR_REG_CHARGTOTAL, "total_charged", BIT32 },
-  { ME3000, SOFAR_REG_DISCHTOTAL, "total_discharged", BIT32 },
-  { ME3000, SOFAR_REG_INTTEMP, "inverter_temp", NOCALC },
-  { ME3000, SOFAR_REG_HSTEMP, "inverter_HStemp", NOCALC },
-  { HYBRID, SOFAR_REG_RUNSTATE, "running_state", NOCALC },
-  { HYBRID, SOFAR_REG_GRIDV, "grid_voltage", DIV10 },
-  { HYBRID, SOFAR_REG_GRIDA, "grid_current", DIV100 },
-  { HYBRID, SOFAR_REG_GRIDFREQ, "grid_freq", DIV100 },
-  { HYBRID, SOFAR_REG_GRIDW, "grid_power", MUL10 },
-  { HYBRID, SOFAR_REG_BATTW, "battery_power", MUL10 },
-  { HYBRID, SOFAR_REG_BATTV, "battery_voltage", DIV10 },
-  { HYBRID, SOFAR_REG_BATTA, "battery_current", DIV100 },
-  { HYBRID, SOFAR_REG_SYSIOW, "inverter_power", MUL10 },
-  { HYBRID, SOFAR_REG_BATTSOC, "batterySOC", NOCALC },
-  { HYBRID, SOFAR_REG_BATTTEMP, "battery_temp", NOCALC },
-  { HYBRID, SOFAR_REG_BATTCYC, "battery_cycles", NOCALC },
-  { HYBRID, SOFAR_REG_LOADW, "consumption", MUL10 },
-  { HYBRID, SOFAR_REG_PVW, "solarPV", MUL10 },
-  { HYBRID, SOFAR_REG_PVA, "solarPVAmps", NOCALC },
-  { HYBRID, SOFAR_REG_PV1, "solarPV1", MUL10 },
-  { HYBRID, SOFAR_REG_PV2, "solarPV2", MUL10 },
-  { HYBRID, SOFAR_REG_PVDAY, "today_generation", DIV100 },
-  { HYBRID, SOFAR_REG_LOADDAY, "today_consumption", DIV100 },
-  { HYBRID, SOFAR_REG_EXPDAY, "today_exported", DIV100 },
-  { HYBRID, SOFAR_REG_IMPDAY, "today_purchase", DIV100 },
-  { HYBRID, SOFAR_REG_CHARGDAY, "today_charged", DIV100 },
-  { HYBRID, SOFAR_REG_DISCHDAY, "today_discharged", DIV100 },
-  { HYBRID, SOFAR_REG_PVTOTAL, "total_generation", BIT32 },
-  { HYBRID, SOFAR_REG_LOADTOTAL, "total_consumption", BIT32 },
-  { HYBRID, SOFAR_REG_EXPTOTAL, "total_exported", BIT32 },
-  { HYBRID, SOFAR_REG_IMPTOTAL, "total_purchase", BIT32 },
-  { HYBRID, SOFAR_REG_CHARGTOTAL, "total_charged", BIT32 },
-  { HYBRID, SOFAR_REG_DISCHTOTAL, "total_discharged", BIT32 },
-  { HYBRID, SOFAR_REG_INTTEMP, "inverter_temp", NOCALC },
-  { HYBRID, SOFAR_REG_HSTEMP, "inverter_HStemp", NOCALC },
-  { HYDV2, SOFAR2_REG_RUNSTATE, "running_state", NOCALC },
-  { HYDV2, SOFAR2_REG_GRIDV, "grid_voltage", DIV10 },
-  { HYDV2, SOFAR2_REG_GRIDFREQ, "grid_freq", DIV100 },
-  { HYDV2, SOFAR2_REG_BATTW, "battery_power", MUL10 },
-  { HYDV2, SOFAR2_REG_BATTV, "battery_voltage", DIV10 },
-  { HYDV2, SOFAR2_REG_BATTA, "battery_current", DIV100 },
-  { HYDV2, SOFAR2_REG_BATTSOC, "batterySOC", NOCALC },
-  { HYDV2, SOFAR2_REG_BATTTEMP, "battery_temp", NOCALC },
-  { HYDV2, SOFAR2_REG_ACTW, "inverter_power", MUL10 },
-  { HYDV2, SOFAR2_REG_EXPW, "grid_power", MUL10},
-  { HYDV2, SOFAR2_REG_LOADW, "consumption", MUL10 },
-  { HYDV2, SOFAR2_REG_PVW, "solarPV", MUL100 },
-  { HYDV2, SOFAR2_REG_PVDAY, "today_generation", DIV100 },
-  { HYDV2, SOFAR2_REG_EXPDAY, "today_exported", DIV100 },
-  { HYDV2, SOFAR2_REG_IMPDAY, "today_purchase", DIV100 },
-  { HYDV2, SOFAR2_REG_LOADDAY, "today_consumption", DIV100 },
-  { HYDV2, SOFAR2_REG_CHARGDAY, "today_charged", DIV100 },
-  { HYDV2, SOFAR2_REG_DISCHDAY, "today_discharged", DIV100 },
-  { HYDV2, SOFAR2_REG_PVTOTAL, "total_generation", DIV10 },
-  { HYDV2, SOFAR2_REG_EXPTOTAL, "total_exported", DIV10 },
-  { HYDV2, SOFAR2_REG_IMPTOTAL, "total_purchase", DIV10 },
-  { HYDV2, SOFAR2_REG_LOADTOTAL, "total_consumption", DIV10 },
-  { HYDV2, SOFAR2_REG_CHARGTOTAL, "total_charged", DIV10 },
-  { HYDV2, SOFAR2_REG_DISCHTOTAL, "total_discharged", DIV10 },
-  { HYDV2, SOFAR2_REG_BATTCYC, "battery_cycles", NOCALC },
-  { HYDV2, SOFAR2_REG_INTTEMP, "inverter_temp", NOCALC },
-  { HYDV2, SOFAR2_REG_HSTEMP, "inverter_HStemp", NOCALC},
-  { HYDV2, SOFAR2_REG_PV1, "solarPV1", MUL10},
-  { HYDV2, SOFAR2_REG_VPV1, "solarPV1Volt", DIV10},
-  { HYDV2, SOFAR2_REG_APV1, "solarPV1Current", DIV100},
-  { HYDV2, SOFAR2_REG_PV2, "solarPV2", MUL10},
-  { HYDV2, SOFAR2_REG_VPV2, "solarPV2Volt", DIV10},
-  { HYDV2, SOFAR2_REG_APV2, "solarPV2Current", DIV100},
+  { ME3000, SOFAR_REG_RUNSTATE, "running_state", U16, NOCALC},
+  { ME3000, SOFAR_REG_GRIDV, "grid_voltage", U16, DIV10},
+  { ME3000, SOFAR_REG_GRIDA, "grid_current", S16, DIV100},
+  { ME3000, SOFAR_REG_GRIDFREQ, "grid_freq", U16, DIV100 },
+  { ME3000, SOFAR_REG_GRIDW, "grid_power", S16, MUL10 },
+  { ME3000, SOFAR_REG_BATTW, "battery_power", S16, MUL10 },
+  { ME3000, SOFAR_REG_BATTV, "battery_voltage", U16, DIV10 },
+  { ME3000, SOFAR_REG_BATTA, "battery_current", S16, DIV100 },
+  { ME3000, SOFAR_REG_SYSIOW, "inverter_power", S16, MUL10 },
+  { ME3000, SOFAR_REG_BATTSOC, "batterySOC", U16, NOCALC },
+  { ME3000, SOFAR_REG_BATTTEMP, "battery_temp", S16, NOCALC },
+  { ME3000, SOFAR_REG_BATTCYC, "battery_cycles", U16, NOCALC },
+  { ME3000, SOFAR_REG_LOADW, "consumption", S16, MUL10},
+  { ME3000, SOFAR_REG_PVW, "solarPV", U16, MUL10 },
+  { ME3000, SOFAR_REG_PVA, "solarPVAmps", U16, NOCALC },
+  { ME3000, SOFAR_REG_EXPDAY, "today_exported", U16, DIV100 },
+  { ME3000, SOFAR_REG_IMPDAY, "today_purchase", U16, DIV100 },
+  { ME3000, SOFAR_REG_PVDAY, "today_generation", U16, DIV100 },
+  { ME3000, SOFAR_REG_LOADDAY, "today_consumption", U16, DIV100 },
+  { ME3000, SOFAR_REG_EXPTOTAL, "total_exported", U32, COMBINE },
+  { ME3000, SOFAR_REG_IMPTOTAL, "total_purchase", U32, COMBINE },
+  { ME3000, SOFAR_REG_PVTOTAL, "total_generation", U32, COMBINE },
+  { ME3000, SOFAR_REG_LOADTOTAL, "total_consumption", U32, COMBINE },
+  { ME3000, SOFAR_REG_CHARGDAY, "today_charged", U16, DIV100 },
+  { ME3000, SOFAR_REG_DISCHDAY, "today_discharged", U16, DIV100 },
+  { ME3000, SOFAR_REG_CHARGTOTAL, "total_charged", U32, COMBINE },
+  { ME3000, SOFAR_REG_DISCHTOTAL, "total_discharged", U32, COMBINE },
+  { ME3000, SOFAR_REG_INTTEMP, "inverter_temp", S16, NOCALC },
+  { ME3000, SOFAR_REG_HSTEMP, "inverter_HStemp", S16, NOCALC },
+  { HYBRID, SOFAR_REG_RUNSTATE, "running_state", U16, NOCALC },
+  { HYBRID, SOFAR_REG_GRIDV, "grid_voltage", U16, DIV10 },
+  { HYBRID, SOFAR_REG_GRIDA, "grid_current", S16, DIV100 },
+  { HYBRID, SOFAR_REG_GRIDFREQ, "grid_freq", U16, DIV100 },
+  { HYBRID, SOFAR_REG_GRIDW, "grid_power", S16, MUL10 },
+  { HYBRID, SOFAR_REG_BATTW, "battery_power", S16, MUL10 },
+  { HYBRID, SOFAR_REG_BATTV, "battery_voltage", U16, DIV10 },
+  { HYBRID, SOFAR_REG_BATTA, "battery_current", S16, DIV100 },
+  { HYBRID, SOFAR_REG_SYSIOW, "inverter_power", S16, MUL10 },
+  { HYBRID, SOFAR_REG_BATTSOC, "batterySOC", U16, NOCALC },
+  { HYBRID, SOFAR_REG_BATTTEMP, "battery_temp", S16, NOCALC },
+  { HYBRID, SOFAR_REG_BATTCYC, "battery_cycles", U16, NOCALC },
+  { HYBRID, SOFAR_REG_LOADW, "consumption", S16, MUL10 },
+  { HYBRID, SOFAR_REG_PVW, "solarPV", U16, MUL10 },
+  { HYBRID, SOFAR_REG_PVA, "solarPVAmps", U16, NOCALC },
+  { HYBRID, SOFAR_REG_PV1, "solarPV1", U16, MUL10 },
+  { HYBRID, SOFAR_REG_PV2, "solarPV2", U16, MUL10 },
+  { HYBRID, SOFAR_REG_PVDAY, "today_generation", U16, DIV100 },
+  { HYBRID, SOFAR_REG_LOADDAY, "today_consumption", U16, DIV100 },
+  { HYBRID, SOFAR_REG_EXPDAY, "today_exported", U16, DIV100 },
+  { HYBRID, SOFAR_REG_IMPDAY, "today_purchase", U16, DIV100 },
+  { HYBRID, SOFAR_REG_CHARGDAY, "today_charged", U16, DIV100 },
+  { HYBRID, SOFAR_REG_DISCHDAY, "today_discharged", U16, DIV100 },
+  { HYBRID, SOFAR_REG_PVTOTAL, "total_generation", U32, COMBINE },
+  { HYBRID, SOFAR_REG_LOADTOTAL, "total_consumption", U32, COMBINE },
+  { HYBRID, SOFAR_REG_EXPTOTAL, "total_exported", U32, COMBINE },
+  { HYBRID, SOFAR_REG_IMPTOTAL, "total_purchase", U32, COMBINE },
+  { HYBRID, SOFAR_REG_CHARGTOTAL, "total_charged", U32, COMBINE },
+  { HYBRID, SOFAR_REG_DISCHTOTAL, "total_discharged", U32, COMBINE },
+  { HYBRID, SOFAR_REG_INTTEMP, "inverter_temp", S16, NOCALC },
+  { HYBRID, SOFAR_REG_HSTEMP, "inverter_HStemp", S16, NOCALC },
+  { HYDV2, SOFAR2_REG_RUNSTATE, "running_state", U16, NOCALC },
+  { HYDV2, SOFAR2_REG_GRIDV, "grid_voltage", U16, DIV10 },
+  { HYDV2, SOFAR2_REG_GRIDFREQ, "grid_freq", U16, DIV100 },
+  { HYDV2, SOFAR2_REG_BATTW, "battery_power", S16, MUL10 },
+  { HYDV2, SOFAR2_REG_BATTV, "battery_voltage", U16, DIV10 },
+  { HYDV2, SOFAR2_REG_BATTA, "battery_current", S16, DIV100 },
+  { HYDV2, SOFAR2_REG_BATTSOC, "batterySOC", U16, NOCALC },
+  { HYDV2, SOFAR2_REG_BATTTEMP, "battery_temp", S16, NOCALC },
+  { HYDV2, SOFAR2_REG_ACTW, "inverter_power", S16, MUL10 },
+  { HYDV2, SOFAR2_REG_EXPW, "grid_power", S16, MUL10},
+  { HYDV2, SOFAR2_REG_LOADW, "consumption", S16, MUL10 },
+  { HYDV2, SOFAR2_REG_PVW, "solarPV", U16, MUL100 },
+  { HYDV2, SOFAR2_REG_PVDAY, "today_generation", U32, DIV100 },
+  { HYDV2, SOFAR2_REG_EXPDAY, "today_exported", U32, DIV100 },
+  { HYDV2, SOFAR2_REG_IMPDAY, "today_purchase", U32, DIV100 },
+  { HYDV2, SOFAR2_REG_LOADDAY, "today_consumption", U32, DIV100 },
+  { HYDV2, SOFAR2_REG_CHARGDAY, "today_charged", U32, DIV100 },
+  { HYDV2, SOFAR2_REG_DISCHDAY, "today_discharged", U32, DIV100 },
+  { HYDV2, SOFAR2_REG_PVTOTAL, "total_generation", U32, DIV10 },
+  { HYDV2, SOFAR2_REG_EXPTOTAL, "total_exported", U32, DIV10 },
+  { HYDV2, SOFAR2_REG_IMPTOTAL, "total_purchase", U32, DIV10 },
+  { HYDV2, SOFAR2_REG_LOADTOTAL, "total_consumption", U32, DIV10 },
+  { HYDV2, SOFAR2_REG_CHARGTOTAL, "total_charged", U32, DIV10 },
+  { HYDV2, SOFAR2_REG_DISCHTOTAL, "total_discharged", U32, DIV10 },
+  { HYDV2, SOFAR2_REG_BATTCYC, "battery_cycles", U16, NOCALC },
+  { HYDV2, SOFAR2_REG_INTTEMP, "inverter_temp", S16, NOCALC },
+  { HYDV2, SOFAR2_REG_HSTEMP, "inverter_HStemp", S16, NOCALC},
+  { HYDV2, SOFAR2_REG_PV1, "solarPV1", U16, MUL10},
+  { HYDV2, SOFAR2_REG_VPV1, "solarPV1Volt", U16, DIV10},
+  { HYDV2, SOFAR2_REG_APV1, "solarPV1Current", U16, DIV100},
+  { HYDV2, SOFAR2_REG_PV2, "solarPV2", U16, MUL10},
+  { HYDV2, SOFAR2_REG_VPV2, "solarPV2Volt", U16, DIV10},
+  { HYDV2, SOFAR2_REG_APV2, "solarPV2Current", U16, DIV100},
 };
 
-// This is the return object for the sendModbus() function. Since we are a modbus master, we
-// are primarily interested in the responses to our commands.
-struct modbusResponse
-{
-  uint8_t errorLevel;
-  uint8_t data[MAX_FRAME_SIZE];
-  uint8_t dataSize;
-  char* errorMessage;
-};
-
-bool modbusError = true;
 
 // These timers are used in the main loop.
 #define HEARTBEAT_INTERVAL 9000
 #define RUNSTATE_INTERVAL 5000
 #define SEND_INTERVAL 10000
 #define BATTERYSAVE_INTERVAL 3000
+#define PEAKSHAVING_INTERVAL 3000
 
 // Wemos OLED Shield set up. 64x48, pins D1 and D2
 #include <SPI.h>
@@ -707,70 +716,62 @@ void setup_wifi()
 
 
 
-void addStateInfo(String &state, unsigned int index)
+void addStateInfo(String &state, unsigned int index, modbusResponse *rs)
 {
-  modbusResponse	rs;
+  String stringVal;
+  uint16_t dataindex = (mqtt_status_reads[index].regnum - SOFAR_START) * 2;
 
-  if (readSingleReg(SOFAR_SLAVE_ID, mqtt_status_reads[index].regnum, &rs) == 0) {
-
-    String stringVal;
-
-    if (mqtt_status_reads[index].calculator == BIT32) {
-      int32_t  val32bit;
+  if (mqtt_status_reads[index].calculator == COMBINE) {
+    int32_t  val32bit;
+    val32bit = (int32_t)((rs->data[dataindex] << 24) | (rs->data[dataindex + 1] << 16) | (rs->data[dataindex + 2] << 8) | rs->data[dataindex + 3]);
+    stringVal = String(val32bit);
+  } else {
+    if (calculated) {
       int16_t  val;
-      val = (int16_t)((rs.data[0] << 8) | rs.data[1]);
-      val32bit = val * 65535;
-      readSingleReg(SOFAR_SLAVE_ID, mqtt_status_reads[index].regnum + 1, &rs);
-      val = (int16_t)((rs.data[0] << 8) | rs.data[1]);
-      val32bit += val;
-      stringVal = String(val32bit);
-    } else {
-      if (calculated) {
-        int16_t  val;
-        val = (int16_t)((rs.data[0] << 8) | rs.data[1]);
+      val = (int16_t)((rs->data[dataindex] << 8) | rs->data[dataindex + 1]);
 
-        switch (mqtt_status_reads[index].calculator) {
-          case DIV10: {
-              stringVal = String((float)val / 10.0);
-              break;
-            }
-          case DIV100: {
-              stringVal = String((float)val / 100.0);
-              break;
-            }
-          case MUL10: {
-              stringVal = String(val * 10);
-              break;
-            }
-          case MUL100: {
-              stringVal = String(val * 100);
-              break;
-            }
-          default: {
-              stringVal = String(val);
-              break;
-            }
-        }
-
-      } else {
-        unsigned int  val;
-        val = ((rs.data[0] << 8) | rs.data[1]);
-        stringVal = String(val);
+      switch (mqtt_status_reads[index].calculator) {
+        case DIV10: {
+            stringVal = String((float)val / 10.0);
+            break;
+          }
+        case DIV100: {
+            stringVal = String((float)val / 100.0);
+            break;
+          }
+        case MUL10: {
+            stringVal = String(val * 10);
+            break;
+          }
+        case MUL100: {
+            stringVal = String(val * 100);
+            break;
+          }
+        default: {
+            stringVal = String(val);
+            break;
+          }
       }
-    }
 
-    if (!( state == "{"))
-      state += ",";
-
-    state += "\"" + mqtt_status_reads[index].mqtt_name + "\":" + stringVal;
-
-    if ((mqtt_status_reads[index].mqtt_name == "batterySOC") && (tftModel)) {
-      tft.setCursor(105, 70);
-      tft.setTextSize(2);
-      tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
-      tft.println(stringVal + "%  ");
+    } else {
+      unsigned int  val;
+      val = ((rs->data[dataindex] << 8) | rs->data[dataindex + 1]);
+      stringVal = String(val);
     }
   }
+
+  if (!( state == "{"))
+    state += ",";
+
+  state += "\"" + mqtt_status_reads[index].mqtt_name + "\":" + stringVal;
+
+  if ((mqtt_status_reads[index].mqtt_name == "batterySOC") && (tftModel)) {
+    tft.setCursor(105, 70);
+    tft.setTextSize(2);
+    tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+    tft.println(stringVal + "%  ");
+  }
+
 }
 
 void retrieveData()
@@ -781,11 +782,11 @@ void retrieveData()
   if (checkTimer(&lastRun, SEND_INTERVAL))
   {
     String	state = "{\"uptime\":" + String(millis()) + ",\"deviceName\": \"" + String(deviceName) + "\"";
-
-    if (!modbusError) {
+    modbusResponse  rs;
+    if ((!modbusError) && ( readBulkReg(SOFAR_SLAVE_ID, SOFAR_START, (SOFAR_END - SOFAR_START + 1), &rs) == 0)) {
       for (unsigned int l = 0; l < sizeof(mqtt_status_reads) / sizeof(struct mqtt_status_register); l++)
         if (mqtt_status_reads[l].inverter == inverterModel) {
-          addStateInfo(state, l);
+          addStateInfo(state, l, &rs);
           loopRuns(); //handle some other requests while building the state info
         }
     }
@@ -867,6 +868,47 @@ void mqttCallback(String topic, byte *message, unsigned int length)
   }
 }
 
+int peakShavingLimitImport = 0;
+int peakShavingLimitExport = 0;
+int peakShavingBatteryPower = 0;
+void peakShaving()
+{
+  static unsigned long  lastRun = 0;
+
+  if (checkTimer(&lastRun, PEAKSHAVING_INTERVAL) && PEAKSHAVING)
+  {
+    modbusResponse  rs;
+
+    //Get grid power
+    int16_t  gridPower = 0;
+
+    if (readSingleReg(SOFAR_SLAVE_ID, SOFAR_REG_GRIDW, &rs) == 0) {
+      gridPower = (int16_t)((rs.data[0] << 8) | rs.data[1]) * 10;
+      if (gridPower < peakShavingLimitImport) {
+        peakShavingBatteryPower += (gridPower - peakShavingLimitImport);
+      } else if (gridPower > peakShavingLimitExport) {
+        peakShavingBatteryPower += (gridPower - peakShavingLimitExport);
+      }
+      if (peakShavingBatteryPower > 0) {
+        //charge
+        if (peakShavingBatteryPower > MAX_POWER) {
+          peakShavingBatteryPower == MAX_POWER;
+        }
+        sendPassiveCmd(SOFAR_SLAVE_ID, SOFAR_FN_CHARGE, (uint16_t)peakShavingBatteryPower, "charge");
+      } else if (peakShavingBatteryPower < 0) {
+        //discharge
+        if (peakShavingBatteryPower < (-1 * MAX_POWER)) {
+          peakShavingBatteryPower == (-1 * MAX_POWER);
+        }
+        sendPassiveCmd(SOFAR_SLAVE_ID, SOFAR_FN_DISCHARGE, (uint16_t)(peakShavingBatteryPower * -1), "discharge");
+      } else {
+        //standby
+        sendPassiveCmd(SOFAR_SLAVE_ID, SOFAR_FN_STANDBY, SOFAR_PARAM_STANDBY, "standby");
+      }
+    }
+  }
+}
+
 void batterySave()
 {
   static unsigned long	lastRun = 0;
@@ -878,7 +920,7 @@ void batterySave()
     //Get grid power
     unsigned int	p = 0;
 
-    if (readSingleReg(SOFAR_SLAVE_ID, SOFAR_REG_GRIDW, &rs)) {
+    if (readSingleReg(SOFAR_SLAVE_ID, SOFAR_REG_GRIDW, &rs) == 0) {
       p = ((rs.data[0] << 8) | rs.data[1]);
 
       // Switch to auto when any power flows to the grid.
@@ -982,7 +1024,7 @@ int sendModbus(uint8_t frame[], byte frameSize, modbusResponse *resp)
 // Listen for a response.
 int listen(modbusResponse *resp)
 {
-  uint8_t		inFrame[64];
+  uint8_t		inFrame[MAX_FRAME_SIZE];
   uint8_t		inByteNum = 0;
   uint8_t		inFrameSize = 0;
   uint8_t		inFunctionCode = 0;
@@ -1077,9 +1119,21 @@ int listen(modbusResponse *resp)
   return -resp->errorLevel;
 }
 
+int readBulkReg(uint8_t id, uint16_t reg, uint8_t bulkSize, modbusResponse *rs)
+{
+  uint8_t  frame[] = { id, MODBUS_FN_READHOLDINGREG, reg >> 8, reg & 0xff, 0, bulkSize, 0, 0 };
+  return sendModbus(frame, sizeof(frame), rs);
+}
+
 int readSingleReg(uint8_t id, uint16_t reg, modbusResponse *rs)
 {
-  uint8_t	frame[] = { id, MODBUS_FN_READSINGLEREG, reg >> 8, reg & 0xff, 0, 0x01, 0, 0 };
+  uint8_t	frame[] = { id, MODBUS_FN_READHOLDINGREG, reg >> 8, reg & 0xff, 0, 0x01, 0, 0 };
+  return sendModbus(frame, sizeof(frame), rs);
+}
+
+int readDoubleReg(uint8_t id, uint16_t reg, modbusResponse *rs)
+{
+  uint8_t  frame[] = { id, MODBUS_FN_READHOLDINGREG, reg >> 8, reg & 0xff, 0, 0x02, 0, 0 };
 
   return sendModbus(frame, sizeof(frame), rs);
 }
@@ -1140,9 +1194,9 @@ int sendPassiveCmd(uint8_t id, uint16_t cmd, uint16_t param, String pubTopic)
 
 void sendMqtt(char* topic, String msg_str)
 {
-  char	msg[1000];
+  char	msg[2000];
 
-  mqtt.setBufferSize(1024);
+  mqtt.setBufferSize(2048);
   msg_str.toCharArray(msg, msg_str.length() + 1); //packaging up the data to publish to mqtt
   if (!(mqtt.publish(topic, msg)))
     printScreen("MQTT publish failed");
