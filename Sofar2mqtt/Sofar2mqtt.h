@@ -665,7 +665,7 @@ const char index_html[] PROGMEM = R"=====(
 </head>
 <body>
   <header>
-    <h1>Sofar2MQTT - 3.3-alpha4</h1>
+    <h1>Sofar2MQTT - 3.3-alpha10</h1>
   </header>
   <div class="container">
     <p><span class="label">Uptime:</span><span class="value" id="uptime"></span></p>
@@ -838,6 +838,12 @@ const char settings_html[] PROGMEM = R"=====(
         <label for='CALCULATED'>Calculated data</label>
       </span><br>
       <span class="label">Screen dim timer:</span><span class="value"><input type="text" id="screendimtimer" name="screendimtimer"></span><br>
+      <span class="label">Seperated mqtt topics per value:</span><span class="value">
+        <input style='display: inline-block;' type='radio' id='SEPERATEDFALSE' name='seperateMqttTopics' value='false'>
+        <label for='SEPERATEDFALSE'>False</label>
+        <input style='display: inline-block;' type='radio' id='SEPERATEDTRUE' name='seperateMqttTopics' value='true'>
+        <label for='SEPERATEDTRUE'>True</label>
+      </span><br>
       <button type="submit" id="save-btn">Save & reboot</button>
       <button id="home-btn">Go back</button>
     </form>
@@ -874,6 +880,13 @@ const char settings_html[] PROGMEM = R"=====(
           } 
         }
         $("#screendimtimer").val(data.screendimtimer);
+        if (data.hasOwnProperty('seperateMqttTopics')) {
+          if (data.seperateMqttTopics == '0') {
+            $("#SEPERATEDFALSE").prop("checked",true);
+          } else {
+            $("#SEPERATEDTRUE").prop("checked",true);
+          } 
+        }
       });
     }
 

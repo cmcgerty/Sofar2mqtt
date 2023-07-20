@@ -1,5 +1,5 @@
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.3-alpha4";
+const char* version = "v3.3-alpha10";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -273,6 +273,8 @@ enum calculatorT {NOCALC, DIV10, DIV100, MUL10, MUL100, COMBINE};
 enum valueTypeT {U16, S16, U32, S32, FLOAT};
 enum inverterModelT {ME3000, HYBRID, HYDV2};
 inverterModelT inverterModel = ME3000; //default to ME3000
+
+bool seperateMqttTopics = false;
 
 struct mqtt_status_register
 {
@@ -559,6 +561,7 @@ void saveToEeprom() {
   EEPROM.write(200, tftModel); // * 200
   EEPROM.write(201, calculated); // * 201
   EEPROM.write(202, screenDimTimer); // * 202
+  EEPROM.write(203, seperateMqttTopics); // * 203
   EEPROM.commit();
   ESP.reset(); // reset after save to activate new settings
 }
@@ -580,11 +583,10 @@ bool loadFromEeprom() {
     } else if (EEPROM.read(199) == 2) {
       inverterModel = HYDV2;
     }
-    tftModel = false;
-    if (EEPROM.read(200)) tftModel = true;
-    calculated = false;
-    if (EEPROM.read(201)) calculated = true;
+    tftModel = EEPROM.read(200);
+    calculated = EEPROM.read(201);
     screenDimTimer = EEPROM.read(202);
+    seperateMqttTopics = EEPROM.read(203);
     WiFi.hostname(deviceName);
     return true;
   }
@@ -867,6 +869,12 @@ void addStateInfo(String &state, unsigned int index, unsigned int dataindex, mod
 
   state += "\"" + mqtt_status_reads[index].mqtt_name + "\":" + stringVal;
 
+  if ((seperateMqttTopics) && (mqtt.connected())) {
+      String topic(deviceName);
+      topic += "/state/" + mqtt_status_reads[index].mqtt_name;
+      sendMqtt(const_cast<char*>(topic.c_str()), stringVal);
+  }
+
   if ((mqtt_status_reads[index].mqtt_name == "batterySOC") && (tftModel)) {
     tft.setCursor(105, 70);
     tft.setTextSize(2);
@@ -1006,6 +1014,149 @@ void mqttCallback(String topic, byte *message, unsigned int length)
     return;
   }
 
+  if (cmd == "mode_control") { //test for HYDV2
+    if (inverterModel == HYDV2) {
+      modbusResponse  rs;
+      int16_t data = messageTemp.toInt();
+      uint16_t addr = 0x1110;
+      uint8_t frame[] = { SOFAR_SLAVE_ID, MODBUS_FN_WRITEMULREG, (addr >> 8) & 0xff, addr & 0xff, 0, 1, 2, 0, data, 0, 0};
+      String retMsg;
+      if (sendModbus(frame, sizeof(frame), &rs))
+        retMsg = rs.errorMessage;
+      else if (rs.dataSize != 2)
+        retMsg = "Reponse is " + String(rs.dataSize) + " bytes?";
+      else
+      {
+        retMsg = String((rs.data[0] << 8) | (rs.data[1] & 0xff));
+      }
+
+      String topic(deviceName);
+      topic += "/response/mode_control";
+      sendMqtt(const_cast<char*>(topic.c_str()), retMsg);
+    }
+    return;
+
+  }
+
+  if (cmd == "ac_output_limit") { //test for HYDV2
+    if (inverterModel == HYDV2) {
+      if (messageTemp == "off") {
+        modbusResponse  rs;
+        uint16_t addr = 0x1105;
+        uint8_t frame[] = { SOFAR_SLAVE_ID, MODBUS_FN_WRITEMULREG, (addr >> 8) & 0xff, addr & 0xff, 0, 1, 2, 0, 0, 0, 0};
+        String retMsg;
+        if (sendModbus(frame, sizeof(frame), &rs))
+          retMsg = rs.errorMessage;
+        else if (rs.dataSize != 2)
+          retMsg = "Reponse is " + String(rs.dataSize) + " bytes?";
+        else
+        {
+          retMsg = String((rs.data[0] << 8) | (rs.data[1] & 0xff));
+        }
+
+        String topic(deviceName);
+        topic += "/response/ac_ouput_limit";
+        sendMqtt(const_cast<char*>(topic.c_str()), retMsg);
+      } else {
+        modbusResponse  rs;
+        int16_t data = messageTemp.toInt();
+        if (data > 1000) {
+          data = 1000;
+        }
+        if (data < 0) {
+          data = 0;
+        }
+        uint16_t addr = 0x1105;
+        uint8_t frame[] = { SOFAR_SLAVE_ID, MODBUS_FN_WRITEMULREG, (addr >> 8) & 0xff, addr & 0xff, 0, 2, 4, 0, 0, (data >> 8) & 0xff, data & 0xff, 0, 0};
+        String retMsg;
+        if (sendModbus(frame, sizeof(frame), &rs))
+          retMsg = rs.errorMessage;
+        else if (rs.dataSize != 2)
+          retMsg = "Reponse is " + String(rs.dataSize) + " bytes?";
+        else
+        {
+          retMsg = String((rs.data[0] << 8) | (rs.data[1] & 0xff));
+        }
+
+        String topic(deviceName);
+        topic += "/response/ac_ouput_limit";
+        sendMqtt(const_cast<char*>(topic.c_str()), retMsg);
+      }
+    }
+    return;
+  }
+
+  if ((cmd == "threephaselimit") || (cmd == "antireflux")) { //test for HYDV2
+    if (inverterModel == HYDV2) {
+      if (messageTemp == "off") {
+        modbusResponse  rs;
+        uint16_t addr = 0x1023;
+        uint8_t frame[] = { SOFAR_SLAVE_ID, MODBUS_FN_WRITEMULREG, (addr >> 8) & 0xff, addr & 0xff, 0, 2, 4, 0, 0, 0, 0, 0, 0};
+        String retMsg;
+        if (sendModbus(frame, sizeof(frame), &rs))
+          retMsg = rs.errorMessage;
+        else if (rs.dataSize != 2)
+          retMsg = "Reponse is " + String(rs.dataSize) + " bytes?";
+        else
+        {
+          retMsg = String((rs.data[0] << 8) | (rs.data[1] & 0xff));
+        }
+
+        String topic(deviceName);
+        topic += "/response/" + cmd;
+        sendMqtt(const_cast<char*>(topic.c_str()), retMsg);
+      } else {
+        modbusResponse  rs;
+        int16_t data = messageTemp.toInt();
+        uint16_t addr = 0x1023;
+        uint8_t control = (cmd == "antireflux") ? 1 : 2;
+        uint8_t frame[] = { SOFAR_SLAVE_ID, MODBUS_FN_WRITEMULREG, (addr >> 8) & 0xff, addr & 0xff, 0, 2, 4, 0, control, (data >> 8) & 0xff, data & 0xff, 0, 0};
+        String retMsg;
+        if (sendModbus(frame, sizeof(frame), &rs))
+          retMsg = rs.errorMessage;
+        else if (rs.dataSize != 2)
+          retMsg = "Reponse is " + String(rs.dataSize) + " bytes?";
+        else
+        {
+          retMsg = String((rs.data[0] << 8) | (rs.data[1] & 0xff));
+        }
+
+        String topic(deviceName);
+        topic += "/response/" + cmd;
+        sendMqtt(const_cast<char*>(topic.c_str()), retMsg);
+      }
+    }
+    return;
+  }
+
+
+
+  if (cmd == "remote_control") { //test for HYDV2
+    if (inverterModel == HYDV2) {
+      modbusResponse  rs;
+      int16_t data = messageTemp.toInt();
+      uint16_t addr = 0x1104;
+      uint8_t frame[] = { SOFAR_SLAVE_ID, MODBUS_FN_WRITEMULREG, (addr >> 8) & 0xff, addr & 0xff, 0, 1, 2, 0, data, 0, 0};
+      String retMsg;
+      if (sendModbus(frame, sizeof(frame), &rs))
+        retMsg = rs.errorMessage;
+      else if (rs.dataSize != 2)
+        retMsg = "Reponse is " + String(rs.dataSize) + " bytes?";
+      else
+      {
+        retMsg = String((rs.data[0] << 8) | (rs.data[1] & 0xff));
+      }
+
+      String topic(deviceName);
+      topic += "/response/remote_control";
+      sendMqtt(const_cast<char*>(topic.c_str()), retMsg);
+    }
+    return;
+  }
+
+
+
+
   if (cmd == "antireflux_control") {
     modbusResponse  rs;
     int8_t state = 0;
@@ -1014,10 +1165,7 @@ void mqttCallback(String topic, byte *message, unsigned int length)
     } else if ((inverterModel == HYDV2) && (messageTemp.toInt() == 2)) { //on HYV2 a mode of 2 means 'anti reflux average over 3 phases'
       state = 2;
     }
-    int16_t addr = SOFAR_ANTIREFLUX_CONTROL;
-    if (inverterModel == HYDV2) {
-      addr = SOFAR2_ANTIREFLUX_CONTROL;
-    }
+    uint16_t addr = inverterModel == HYDV2 ? SOFAR2_ANTIREFLUX_CONTROL : SOFAR_ANTIREFLUX_CONTROL;
     uint8_t frame[] = { SOFAR_SLAVE_ID, MODBUS_FN_WRITEMULREG, (addr >> 8) & 0xff, addr & 0xff, 0, 1, 2, 0, state, 0, 0};
     String retMsg;
     if (sendModbus(frame, sizeof(frame), &rs))
@@ -1038,10 +1186,7 @@ void mqttCallback(String topic, byte *message, unsigned int length)
   if (cmd == "antireflux_power") {
     modbusResponse  rs;
     int16_t power = messageTemp.toInt();
-    int16_t addr = SOFAR_ANTIREFLUX_POWER;
-    if (inverterModel == HYDV2) {
-      addr = SOFAR2_ANTIREFLUX_POWER;
-    }
+    uint16_t addr = inverterModel == HYDV2 ? SOFAR2_ANTIREFLUX_POWER : SOFAR_ANTIREFLUX_POWER;
     uint8_t frame[] = { SOFAR_SLAVE_ID, MODBUS_FN_WRITEMULREG, (addr >> 8) & 0xff, addr & 0xff, 0, 1, 2, (power >> 8) & 0xff, power & 0xff, 0, 0};
     String retMsg;
     if (sendModbus(frame, sizeof(frame), &rs))
@@ -1747,6 +1892,8 @@ void handleJsonSettings()
   jsonsettingsstring += "\"calculated\": \"" + String(calculated) + "\"";
   jsonsettingsstring += ",";
   jsonsettingsstring += "\"screendimtimer\": \"" + String(screenDimTimer) + "\"";
+  jsonsettingsstring += ",";
+  jsonsettingsstring += "\"seperateMqttTopics\": \"" + String(seperateMqttTopics) + "\"";
   jsonsettingsstring += "}";
 
   httpServer.send(200, "application/json", jsonsettingsstring);
@@ -1823,6 +1970,15 @@ void handleCommand() {
       String value =  httpServer.arg(i);
       message += "Setting screen dim timer to: " + value + "<br>";
       screenDimTimer = value.toInt();
+      saveEeprom = true;
+    } else if (httpServer.argName(i) == "seperateMqttTopics") {
+      String value =  httpServer.arg(i);
+      message += "Setting seperateMqttTopics to: " + value + "<br>";
+      if (value == "true") {
+        seperateMqttTopics = true;
+      } else {
+        seperateMqttTopics = false;
+      }
       saveEeprom = true;
     }
 
