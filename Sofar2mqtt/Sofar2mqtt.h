@@ -626,7 +626,7 @@ const char index_html[] PROGMEM = R"=====(
 
     h1 {
       margin: 0;
-      font-size: 2em;
+      font-size: x-large;
     }
 
     .container {
@@ -665,7 +665,7 @@ const char index_html[] PROGMEM = R"=====(
 </head>
 <body>
   <header>
-    <h1>Sofar2MQTT - 3.3-alpha10</h1>
+    <h1>Sofar2MQTT - 3.3-alpha11</h1>
   </header>
   <div class="container">
     <p><span class="label">Uptime:</span><span class="value" id="uptime"></span></p>
@@ -765,7 +765,7 @@ const char settings_html[] PROGMEM = R"=====(
 
     h1 {
       margin: 0;
-      font-size: 2em;
+      font-size: x-large;
     }
 
     .container {
@@ -839,9 +839,9 @@ const char settings_html[] PROGMEM = R"=====(
       </span><br>
       <span class="label">Screen dim timer:</span><span class="value"><input type="text" id="screendimtimer" name="screendimtimer"></span><br>
       <span class="label">Seperated mqtt topics per value:</span><span class="value">
-        <input style='display: inline-block;' type='radio' id='SEPERATEDFALSE' name='seperateMqttTopics' value='false'>
+        <input style='display: inline-block;' type='radio' id='SEPERATEDFALSE' name='separateMqttTopics' value='false'>
         <label for='SEPERATEDFALSE'>False</label>
-        <input style='display: inline-block;' type='radio' id='SEPERATEDTRUE' name='seperateMqttTopics' value='true'>
+        <input style='display: inline-block;' type='radio' id='SEPERATEDTRUE' name='separateMqttTopics' value='true'>
         <label for='SEPERATEDTRUE'>True</label>
       </span><br>
       <button type="submit" id="save-btn">Save & reboot</button>
@@ -880,8 +880,8 @@ const char settings_html[] PROGMEM = R"=====(
           } 
         }
         $("#screendimtimer").val(data.screendimtimer);
-        if (data.hasOwnProperty('seperateMqttTopics')) {
-          if (data.seperateMqttTopics == '0') {
+        if (data.hasOwnProperty('separateMqttTopics')) {
+          if (data.separateMqttTopics == '0') {
             $("#SEPERATEDFALSE").prop("checked",true);
           } else {
             $("#SEPERATEDTRUE").prop("checked",true);
@@ -889,6 +889,324 @@ const char settings_html[] PROGMEM = R"=====(
         }
       });
     }
+
+    getData();
+    
+    $("#home-btn").click(function(e){
+         e.preventDefault();
+         window.location = "/";    
+    });
+  </script>
+</body>
+</html>
+)=====";
+
+const char settings_html_new[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Sofar2MQTT - Settings</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #F8F8F8;
+    }
+
+    header {
+      background-color: #333;
+      color: #FFF;
+      padding: 10px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: x-large;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #FFF;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      margin-top: 50px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .value input[type="text"],
+    .value input[type="password"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #CCC;
+      border-radius: 5px;
+    }
+
+    .radio-label {
+      margin-right: 10px;
+    }
+
+    .btn {
+      background-color: #333;
+      color: #FFF;
+      padding: 10px 20px;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .btn:hover {
+      background-color: #555;
+    }
+
+  /* Popup styles */
+  .popup-container {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+  }
+
+  .popup-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #FFF;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 1001;
+    width: 80%;
+  }
+
+  .popup-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    cursor: pointer;
+    font-size: 20px;
+  }
+
+  .popup-title {
+    margin: 0;
+    font-size: 1.5em;
+  }
+
+  .popup-text {
+    margin-top: 10px;
+  }
+    
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sofar2MQTT - Settings</h1>
+  </header>
+  <div class="container">
+    <form id="settings-form" action="/command" method="get">
+      <!-- Device name -->
+      <div class="form-group">
+        <label class="label tooltip-icon question-mark" for="deviceName" data-value-id="deviceName" onclick="showExplanation('deviceName')">Device name: <i class="fas fa-question-circle"></i></label>
+        <div class="value">
+          <input type="text" id="deviceName" name="deviceName" placeholder="Enter device name">
+        </div>
+      </div>
+
+      <!-- MQTT host -->
+      <div class="form-group">
+        <label class="label tooltip-icon question-mark" for="mqtthost" data-value-id="mqtthost" onclick="showExplanation('mqtthost')">MQTT host: <i class="fas fa-question-circle"></i></label>
+        <div class="value">
+          <input type="text" id="mqtthost" name="mqtthost" placeholder="Enter MQTT host">
+        </div>
+      </div>
+
+      <!-- MQTT port -->
+      <div class="form-group">
+        <label class="label tooltip-icon question-mark" for="mqttport" data-value-id="mqttport" onclick="showExplanation('mqttport')">MQTT port: <i class="fas fa-question-circle"></i></label>
+        <div class="value">
+          <input type="text" id="mqttport" name="mqttport" placeholder="Enter MQTT port">
+        </div>
+      </div>
+
+      <!-- MQTT user -->
+      <div class="form-group">
+        <label class="label tooltip-icon question-mark" for="mqttuser" data-value-id="mqttuser" onclick="showExplanation('mqttuser')">MQTT user:<i class="fas fa-question-circle"></i></label>
+        <div class="value">
+          <input type="text" id="mqttuser" name="mqttuser" placeholder="Enter MQTT user">
+        </div>
+      </div>
+
+      <!-- MQTT pass -->
+      <div class="form-group">
+        <label class="label tooltip-icon question-mark" for="mqttpass" data-value-id="mqttpass" onclick="showExplanation('mqttpass')">MQTT password: <i class="fas fa-question-circle"></i></label>
+        <div class="value">
+          <input type="password" id="mqttpass" name="mqttpass" placeholder="Enter MQTT password">
+        </div>
+      </div>
+
+      <!-- Inverter type -->
+      <div class="form-group">
+        <label class="label tooltip-icon question-mark" for="inverterModel" data-value-id="inverterModel" onclick="showExplanation('inverterModel')">Inverter model: <i class="fas fa-question-circle"></i></label>
+        <div class="value">
+          <input type="radio" id="ME3000" name="inverterModel" value="me3000">
+          <label class="radio-label" for="ME3000">ME3000SP</label>
+          <input type="radio" id="HYBRID" name="inverterModel" value="hybrid">
+          <label class="radio-label" for="HYBRID">HYDxxxxES</label>
+          <input type="radio" id="HYDV2" name="inverterModel" value="hydv2">
+          <label class="radio-label" for="HYDV2">HYD EP/KTL</label>
+        </div>
+      </div>
+
+      <!-- Screen type -->
+      <div class="form-group">
+        <label class="label tooltip-icon question-mark" for="tftModel" data-value-id="tftModel" onclick="showExplanation('tftModel')">Screen type: <i class="fas fa-question-circle"></i></label>
+        <div class="value">
+          <input type="radio" id="TFT" name="tftModel" value="tft">
+          <label class="radio-label" for="TFT">TFT</label>
+          <input type="radio" id="OLED" name="tftModel" value="oled">
+          <label class="radio-label" for="OLED">OLED</label>
+        </div>
+      </div>
+
+      <!-- Data mode -->
+      <div class="form-group">
+        <label class="label tooltip-icon question-mark" for="calculated" data-value-id="calculated" onclick="showExplanation('calculated')">Data mode: <i class="fas fa-question-circle"></i></label>
+        <div class="value">
+          <input type="radio" id="RAW" name="calculated" value="false">
+          <label class="radio-label" for="RAW">Raw data</label>
+          <input type="radio" id="CALCULATED" name="calculated" value="true">
+          <label class="radio-label" for="CALCULATED">Calculated data</label>
+        </div>
+      </div>
+
+      <!-- Screen dim timer -->
+      <div class="form-group">
+        <label class="label tooltip-icon question-mark" for="screendimtimer" data-value-id="screendimtimer" onclick="showExplanation('screendimtimer')">Screen dim timer: <i class="fas fa-question-circle"></i></label>
+        <div class="value">
+          <input type="text" id="screendimtimer" name="screendimtimer" placeholder="Enter screen dim timer">
+        </div>
+      </div>
+
+      <!-- Separated MQTT topics per value -->
+      <div class="form-group">
+        <label class="label tooltip-icon question-mark" for="separateMqttTopics" data-value-id="separateMqttTopics" onclick="showExplanation('separateMqttTopics')">Separated topics per value: <i class="fas fa-question-circle"></i></label>
+        <div class="value">
+          <input type="radio" id="SEPERATEDFALSE" name="separateMqttTopics" value="false">
+          <label class="radio-label" for="SEPERATEDFALSE">False</label>
+          <input type="radio" id="SEPERATEDTRUE" name="separateMqttTopics" value="true">
+          <label class="radio-label" for="SEPERATEDTRUE">True</label>
+        </div>
+      </div>
+
+      <button type="submit" class="btn" id="save-btn">Save &amp; reboot</button>
+      <button class="btn" id="home-btn">Go back</button>
+    </form>
+  </div>
+  <!-- Popup for displaying explanations -->
+  <div id="popup-container" class="popup-container">
+    <div class="popup-content">
+      <span class="popup-close" onclick="hideExplanation()">&times;</span>
+     <h3 class="popup-title">Explanation</h3>
+      <p class="popup-text" id="popup-text">Detailed explanation will be shown here.</p>
+    </div>
+  </div>
+  <script>
+    function getData() {
+      $.getJSON("/jsonsettings", function(data) {
+        $("#deviceName").val(data.deviceName);
+        $("#mqtthost").val(data.mqtthost);
+        $("#mqttport").val(data.mqttport);
+        $("#mqttuser").val(data.mqttuser);
+        $("#mqttpass").val(data.mqttpass);
+        if (data.hasOwnProperty('inverterModel')) {
+          if (data.inverterModel == '0') {
+            $("#ME3000").prop("checked",true);
+          } else if (data.inverterModel == '1') {
+            $("#HYBRID").prop("checked",true);
+          } else if (data.inverterModel == '2') {
+            $("#HYDV2").prop("checked",true);
+          }
+        }
+        if (data.hasOwnProperty('tftModel')) {
+          if (data.tftModel == '0') {
+            $("#OLED").prop("checked",true);
+          } else {
+            $("#TFT").prop("checked",true);
+          } 
+        }
+        if (data.hasOwnProperty('calculated')) {
+          if (data.calculated == '0') {
+            $("#RAW").prop("checked",true);
+          } else {
+            $("#CALCULATED").prop("checked",true);
+          } 
+        }
+        $("#screendimtimer").val(data.screendimtimer);
+        if (data.hasOwnProperty('separateMqttTopics')) {
+          if (data.separateMqttTopics == '0') {
+            $("#SEPERATEDFALSE").prop("checked",true);
+          } else {
+            $("#SEPERATEDTRUE").prop("checked",true);
+          } 
+        }
+      });
+    }
+
+  function showExplanation(valueId) {
+    // Get the value's explanation based on its ID (you can use a more sophisticated method here)
+    let explanation = getExplanationFromId(valueId);
+
+    // Display the explanation in the popup
+    document.getElementById('popup-text').innerText = explanation;
+    document.getElementById('popup-container').style.display = 'block';
+  }
+
+  function hideExplanation() {
+    document.getElementById('popup-container').style.display = 'none';
+  }
+
+  function getExplanationFromId(valueId) {
+    // Here, you can define a mapping of IDs to explanations
+    // Replace this with your actual explanations
+    const explanations = {
+      'deviceName': 'The device name is used to identify the specific device in the system.',
+      'mqtthost': 'MQTT host is the ip-address of the MQTT broker used to communicate with the devices.',
+      'mqttport': 'MQTT port is the port number on which the MQTT broker is listening.',
+      'mqttuser': 'MQTT user is the username used for authentication when connecting to the MQTT broker.',
+      'mqttpass': 'MQTT pass is the password used for authentication when connecting to the MQTT broker.',
+      'inverterModel': 'Inverter type is the model of the inverter used in the system. The EP and KTL matches the new 1 phase and 3 phase models.',
+      'tftModel': 'Screen type refers to the type of display used by the module. Select the OLED type if you use the older small OLED on a Wemos example.',
+      'calculated': 'Data mode determines whether the data transmitted to the MQTT broker is raw or calculated values. Raw is to be compatible with older automation scripts where the positive/negative calculation is done there.',
+      'screendimtimer': 'Screen dim timer is the time interval before the display dims. To keep the display on set the value to 0.',
+      'separateMqttTopics': 'Separated MQTT topics per value determines whether separate MQTT topics are used for each value.'
+      // Add explanations for other values
+    };
+
+    return explanations[valueId] || 'No explanation available.';
+  }
 
     getData();
     
