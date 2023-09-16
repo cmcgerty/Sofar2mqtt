@@ -1,5 +1,5 @@
 // The device name is used as the MQTT base topic. If you need more than one Sofar2mqtt on your network, give them unique names.
-const char* version = "v3.3-alpha11";
+const char* version = "v3.3-alpha12";
 
 bool tftModel = true; //true means 2.8" color tft, false for oled version
 
@@ -2044,7 +2044,7 @@ void loopRuns() {
   ArduinoOTA.handle();
   httpServer.handleClient();
   MDNS.update();
-  tsLoop();
+  if (tftModel) tsLoop();
 }
 
 void loop()
