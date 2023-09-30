@@ -63,7 +63,43 @@ Just go ahead to this [Tindie](https://www.tindie.com/products/thehognl/esp12-f-
 
 # How To Build your own module
 
-If you want to build your own module you should follow [this readme](MODULE.md)
+If you want to build your own module you should follow the rest of this readme.
+
+Parts List:
+1. ESP8266 Microcontroller
+2. MAX485 or MAX3485 TTL to RS485 board*
+3. Wemos 64x48 OLED Screen (optional)
+4. A small project board
+5. A few wires and a little solder
+
+*The MAX3485 (which is red, not blue like the MAX485 shown here) is preferred as it is much more stable because it uses 3.3v logic, just like the ESP8366. The MAX485 uses 5v logic but is somewhat tolerant of 3.3v and is generally cheaper and more widely available. I use a MAX485 but many people have reported problems with this and if you can find a MAX3485 then you should use that. MAX3485 boards do not have DR and RE flow control pins, so just skip the wire from pin D5 in the wiring diagram below.
+
+![Parts](pics/parts.jpg)
+
+Cut the project board to a convenient size.
+
+![Board](pics/board.jpg)
+
+Wire the components according to this circuit diagram.
+
+![Wiring Diagram](pics/diagram.jpg)
+
+I tend to keep the wires on top of the board, poke them through and solder underneath. Your approach may be better and your soldering will almost certainly be better than mine!
+
+![Wiring](pics/wiring.jpg)
+
+Make sure you connect the DR and RE pins together. The red arrow below shows where a single wire from D5 connects to both DR and RE. (If you are using a TTL board without the DR and RE pins, ignore this step.)
+
+![Short these pins](pics/short.jpg)
+
+Use long pinned mounts on your ESP8266 if you are stacking the optional OLED on top. Trim the legs so they fit comfortably into the sockets on the circuit board below.  
+I don't recommend soldering the ESP8266 permanently to your circuit board.   
+
+![Chips](pics/ICs.jpg)
+
+Here's how it looks when completed.
+
+![Finished](pics/Sofar2MQTT_completed.jpg)
 
 # Flashing
 
